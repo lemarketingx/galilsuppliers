@@ -1,121 +1,95 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { Search, Upload, Trash2, Star, Calculator, Users, FileSpreadsheet, Download, Printer, Save, RotateCcw, Building2, Filter, Plus, X } from 'lucide-react';
-import './style.css';
+import { Search, Upload, Trash2, Star, Download, FileText, Calculator, Users, Save, RotateCcw, Building2 } from 'lucide-react';
+import './styles.css';
 
-const logo = '/galil-logo.webp';
-const fmt = n => new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(Number(n) || 0);
-const money = (n, cur='₪') => `${fmt(n)} ${cur || '₪'}`;
-const clean = v => String(v ?? '').trim();
-const norm = v => clean(v).replace(/\s+/g, '').replace(/["'׳״]/g, '').toLowerCase();
-const get = (row, names) => {
-  const map = Object.keys(row).reduce((a,k)=>{a[norm(k)] = row[k]; return a;}, {});
-  for (const name of names) if (map[norm(name)] !== undefined) return map[norm(name)];
+const logoBase64 = 'data:image/webp;base64,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';
+
+const money = (n) => new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(Number(n) || 0);
+const safe = (v) => (v ?? '').toString().trim();
+const pick = (row, names) => {
+  for (const n of names) {
+    if (row[n] !== undefined && row[n] !== null && safe(row[n]) !== '') return row[n];
+  }
   return '';
 };
-const toNum = v => {
-  if (typeof v === 'number') return v;
-  const s = clean(v).replace(/,/g,'').replace(/[₪$€]/g,'');
-  return Number(s) || 0;
-};
-const readExcel = (file, cb) => {
+const num = (v) => Number(String(v ?? '0').replace(/[₪,]/g, '')) || 0;
+
+const sampleBoq = [
+  { id: 'b1', desc: 'צינור CS בקוטר 2 אינץ כולל התקנה', supplier: 'Technobar', sku: 'P-200', qty: 30, unitPrice: 240, total: 7200, currency: '₪', project: 'Demo', discipline: 'צנרת' },
+  { id: 'b2', desc: 'לוח חשמל משנה עד 125A', supplier: 'ABB', sku: 'E-125', qty: 1, unitPrice: 8800, total: 8800, currency: '₪', project: 'Demo', discipline: 'חשמל' },
+  { id: 'b3', desc: 'יציקת בטון C30 כולל טפסנות', supplier: 'Civil Contractor', sku: 'C-30', qty: 12, unitPrice: 1350, total: 16200, currency: '₪', project: 'Demo', discipline: 'הנדסה אזרחית' }
+];
+const sampleSuppliers = [
+  { id:'s1', name:'ABB Israel', field:'חשמל', contact:'', phone:'', email:'', rating:5, notes:'לוחות, ציוד חשמל ובקרה' },
+  { id:'s2', name:'Technobar', field:'צנרת', contact:'', phone:'', email:'', rating:4, notes:'ברזים, מכשור ואביזרי צנרת' },
+  { id:'s3', name:'Hilti', field:'הנדסה אזרחית', contact:'', phone:'', email:'', rating:4, notes:'עיגונים, כלי עבודה וקידוחים' }
+];
+const fields = ['הכל','צנרת','חשמל','מכשור ובקרה','הנדסה אזרחית','מכונות','בטיחות','לוגיסטיקה','כללי'];
+
+function detectDiscipline(input='') {
+  const t = input.toLowerCase();
+  if (/abb|schneider|siemens|electric|power|cable|חשמל|לוח|כבל|תאורה|מתח/.test(t)) return 'חשמל';
+  if (/pipe|valve|flow|piping|flange|technobar|צנרת|ברז|צינור|אוגן|רקורד/.test(t)) return 'צנרת';
+  if (/instrument|control|sensor|transmitter|מכשור|בקרה|מדידה|לחץ|טמפרטורה/.test(t)) return 'מכשור ובקרה';
+  if (/civil|concrete|construction|hilti|בטון|קבלן|בניה|עפר|אזרחי|קונסטרוקציה/.test(t)) return 'הנדסה אזרחית';
+  if (/motor|pump|gear|machine|מנוע|משאבה|מכונה|מסוע|מכונות/.test(t)) return 'מכונות';
+  if (/safety|fire|ppe|בטיחות|כיבוי|מיגון/.test(t)) return 'בטיחות';
+  if (/shipping|dhl|transport|logistic|שילוח|הובלה|עמילות/.test(t)) return 'לוגיסטיקה';
+  return 'כללי';
+}
+
+function readWorkbook(file, callback) {
   const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+  reader.onload = (evt) => {
+    const data = new Uint8Array(evt.target.result);
+    const wb = XLSX.read(data, { type: 'array' });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    cb(XLSX.utils.sheet_to_json(sheet, { defval: '' }));
+    callback(XLSX.utils.sheet_to_json(sheet, { defval: '' }));
   };
   reader.readAsArrayBuffer(file);
-};
-const exportExcel = (rows, name) => {
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Data');
-  XLSX.writeFile(wb, name);
-};
-const disciplines = ['כל התחומים','צנרת','חשמל','הנדסה אזרחית','מכשור ובקרה','מכונות','בטיחות','לוגיסטיקה ושילוח','בידוד וצבע','ציוד תהליך','כללי'];
-const detectDiscipline = (...parts) => {
-  const t = parts.join(' ').toLowerCase();
-  const rules = [
-    ['צנרת', ['pipe','piping','valve','flange','fitting','flow','pump','hydro','צנרת','צינור','ברז','שסתום','אוגן','מחבר','אביזרי צנרת']],
-    ['חשמל', ['electric','electrical','power','cable','panel','siemens','schneider','abb','חשמל','כבל','לוח','ארון חשמל','מתח','הארקה']],
-    ['הנדסה אזרחית', ['civil','concrete','construction','building','contractor','בטון','בינוי','אזרחי','קבלן','עפר','יציקה','קונסטרוקציה']],
-    ['מכשור ובקרה', ['instrument','control','automation','plc','sensor','transmitter','מכשור','בקרה','אוטומציה','חיישן','משדר']],
-    ['מכונות', ['machine','mechanical','motor','gear','conveyor','bearing','מכונות','מנוע','מסוע','גיר','מיסב']],
-    ['בטיחות', ['safety','fire','ppe','בטיחות','כיבוי','אש','מגן']],
-    ['לוגיסטיקה ושילוח', ['shipping','freight','dhl','logistics','transport','שילוח','הובלה','לוגיסטיקה','עמילות','מכס']],
-    ['בידוד וצבע', ['paint','coating','insulation','sandblast','צבע','צביעה','בידוד','ציפוי','ניקוי חול']],
-    ['ציוד תהליך', ['process','silo','tank','vessel','filter','mixer','reactor','מיכל','סילו','פילטר','מערבל','ריאקטור']]
-  ];
-  for (const [d, words] of rules) if (words.some(w => t.includes(w))) return d;
-  return 'כללי';
-};
-
-const demoBoq = [
-  {id:'b1', section:'צינור CS Sch.40 בקוטר 2" כולל התקנה', supplier:'ספק דוגמה צנרת', sku:'P-002', qty:25, unitPrice:240, total:6000, currency:'₪', project:'T1051', resource:'צנרת תהליך', discipline:'צנרת'},
-  {id:'b2', section:'כבל N2XY 5x10 כולל השחלה וחיבור', supplier:'ספק דוגמה חשמל', sku:'E-510', qty:120, unitPrice:88, total:10560, currency:'₪', project:'T1051', resource:'חשמל', discipline:'חשמל'},
-  {id:'b3', section:'יציקת בטון C30 כולל טפסנות וברזל', supplier:'קבלן דוגמה אזרחי', sku:'C-030', qty:18, unitPrice:1350, total:24300, currency:'₪', project:'T1051', resource:'עבודות בטון', discipline:'הנדסה אזרחית'}
-];
-const demoSuppliers = [
-  {id:'s1', name:'Technobar', field:'מכשור, צנרת ושסתומים', discipline:'צנרת', contact:'Adi', phone:'', email:'', rating:4, status:'מאושר', notes:'ספק דוגמה'},
-  {id:'s2', name:'ABB', field:'Electrical panels, drives and automation', discipline:'חשמל', contact:'', phone:'', email:'', rating:5, status:'מאושר', notes:'ספק דוגמה'},
-  {id:'s3', name:'Civil Concrete Ltd', field:'Concrete and civil works', discipline:'הנדסה אזרחית', contact:'', phone:'', email:'', rating:3, status:'בדיקה', notes:'ספק דוגמה'}
-];
+}
 
 function App(){
-  const [tab,setTab] = useState('boq');
+  const [tab,setTab]=useState('boq');
   return <div dir="rtl" className="app">
-    <header className="hero">
-      <div className="heroGlow" />
-      <div className="headerContent">
-        <div className="brand"><img src={logo}/><div><div className="eyebrow">GALIL GROUP · Engineering Tools</div><h1>מערכת הנדסית מאוחדת</h1><p>מחירון כתבי כמויות ומאגר ספקים באתר אחד, עם ייבוא Excel, חיפוש, סינון וייצוא.</p></div></div>
-        <div className="tabs"><button className={tab==='boq'?'active':''} onClick={()=>setTab('boq')}><Calculator size={18}/> מחירון / BOQ</button><button className={tab==='suppliers'?'active':''} onClick={()=>setTab('suppliers')}><Users size={18}/> רשימת ספקים</button></div>
-      </div>
-    </header>
-    <main>{tab==='boq'?<BoqModule/>:<SuppliersModule/>}</main>
+    <header className="hero"><div className="heroIn"><img src={logoBase64} className="logo"/><div><p>GALIL GROUP · Engineering Suite</p><h1>מערכת גליל הנדסה</h1><span>מחירון כתבי כמויות + מאגר ספקים באתר אחד</span></div></div></header>
+    <nav className="tabs"><button className={tab==='boq'?'active':''} onClick={()=>setTab('boq')}><Calculator size={18}/> מחירון / BOQ</button><button className={tab==='suppliers'?'active':''} onClick={()=>setTab('suppliers')}><Users size={18}/> מאגר ספקים</button></nav>
+    {tab==='boq'?<BoqModule/>:<SuppliersModule/>}
   </div>
 }
 
 function BoqModule(){
-  const [items,setItems] = useState(()=>JSON.parse(localStorage.getItem('galil_boq_items')||'null') || demoBoq);
-  const [cart,setCart] = useState(()=>JSON.parse(localStorage.getItem('galil_boq_cart')||'[]'));
-  const [query,setQuery] = useState(''); const [disc,setDisc] = useState('כל התחומים'); const [project,setProject] = useState(''); const reportRef = useRef(null);
-  useEffect(()=>localStorage.setItem('galil_boq_items',JSON.stringify(items)),[items]);
-  useEffect(()=>localStorage.setItem('galil_boq_cart',JSON.stringify(cart)),[cart]);
-  const filtered = useMemo(()=>items.filter(i=>(disc==='כל התחומים'||i.discipline===disc) && [i.section,i.supplier,i.sku,i.resource,i.project].join(' ').toLowerCase().includes(query.toLowerCase())),[items,query,disc]);
-  const total = cart.reduce((s,i)=>s+(Number(i.total)||0),0);
-  const load = e => { const file=e.target.files?.[0]; if(!file)return; readExcel(file, rows=>{
-    const parsed = rows.map((r,i)=>{ const section=clean(get(r,['תאור הסעיף/פרק','תיאור הסעיף/פרק','תיאור','שם פריט'])); const supplier=clean(get(r,['ספק','שם ספק','שם ספק/קבלן'])); const resource=clean(get(r,['תאור משאב','תיאור משאב','תחום עיסוק'])); const total=toNum(get(r,['מחיר כולל מעמ','מחיר כולל מע"מ','מחיר כולל מע״מ','סהכ','סה"כ'])); const unit=toNum(get(r,["מחיר ליח' לפני הנחה",'מחיר ליחידה לפני הנחה','מחיר ליח'])); return {id:'boq-'+Date.now()+'-'+i, section: section||resource||'סעיף ללא תיאור', supplier, sku:clean(get(r,['מקט','מק"ט','מק״ט','Part Number'])), qty:toNum(get(r,['כמות','Qty','Quantity'])) || 1, unitPrice: unit || total, total: total || unit, currency:clean(get(r,['מטבע חוזה','מטבע','Currency'])) || '₪', project:clean(get(r,['פרויקט','Project'])), projectDesc:clean(get(r,['תאור פרויקט','תיאור פרויקט'])), resource, quoteDate:clean(get(r,['תאריך הגשת הצעת מחיר','תאריך הצעה'])), discipline: detectDiscipline(section,supplier,resource)} }); setItems(parsed); setCart([]); }); };
-  const add = item => setCart(p=>{const ex=p.find(x=>x.id===item.id); return ex?p.map(x=>x.id===item.id?{...x, selectedQty:(x.selectedQty||x.qty||1)+1,total:(x.unitPrice||x.total)*((x.selectedQty||x.qty||1)+1)}: [...p,{...item,selectedQty:item.qty||1}];});
-  const pdf = async()=>{ const el=reportRef.current; if(!el)return; const canvas=await html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff'}); const img=canvas.toDataURL('image/png'); const doc=new jsPDF('p','mm','a4'); const w=210; const h=canvas.height*w/canvas.width; doc.addImage(img,'PNG',0,0,w,h); doc.save('galil-boq-report.pdf'); };
-  return <section className="pageGrid">
-    <div className="panel wide"><PanelTitle icon={<FileSpreadsheet/>} title="מחירון כתבי כמויות" sub="ייבוא Excel לפי העמודות שלך, בחירת סעיפים וחישוב אומדן" />
-      <div className="toolbar"><label className="upload"><Upload size={18}/> העלאת Excel<input type="file" accept=".xlsx,.xls" onChange={load}/></label><div className="search"><Search size={18}/><input placeholder="חיפוש לפי סעיף, ספק, מק״ט או פרויקט" value={query} onChange={e=>setQuery(e.target.value)}/></div><select value={disc} onChange={e=>setDisc(e.target.value)}>{disciplines.map(d=><option key={d}>{d}</option>)}</select></div>
-      <div className="cards">{filtered.map(item=><div className="card" key={item.id}><div><span className="tag">{item.discipline}</span><h3>{item.section}</h3><p>{item.supplier || 'ללא ספק'} · {item.sku || 'ללא מק״ט'} · {item.resource}</p></div><div className="price"><b>{money(item.total,item.currency)}</b><small>כמות: {fmt(item.qty)}</small><button onClick={()=>add(item)}><Plus size={16}/> הוסף</button></div></div>)}</div>
-    </div>
-    <div className="panel side"><PanelTitle icon={<Calculator/>} title="סל חישוב" sub="הפריטים שנבחרו לפרויקט"/><input className="fullInput" placeholder="שם פרויקט לדוח" value={project} onChange={e=>setProject(e.target.value)}/><div className="cart">{cart.map(i=><div className="cartRow" key={i.id}><span>{i.section}</span><b>{money(i.total,i.currency)}</b><button onClick={()=>setCart(p=>p.filter(x=>x.id!==i.id))}><X size={15}/></button></div>)}</div><div className="totalBox"><span>סה״כ אומדן</span><b>{money(total,'₪')}</b></div><div className="actions"><button onClick={()=>exportExcel(cart,'galil-boq-cart.xlsx')}><Download size={16}/> Excel</button><button onClick={pdf}><Printer size={16}/> PDF</button><button onClick={()=>setCart([])}><RotateCcw size={16}/> נקה</button></div></div>
-    <div className="pdfReport" ref={reportRef}><img src={logo}/><h2>Galil Group - BOQ Report</h2><p>פרויקט: {project || 'ללא שם'}</p><table><thead><tr><th>דיסציפלינה</th><th>תיאור סעיף</th><th>ספק</th><th>כמות</th><th>סה״כ</th></tr></thead><tbody>{cart.map(i=><tr key={i.id}><td>{i.discipline}</td><td>{i.section}</td><td>{i.supplier}</td><td>{i.qty}</td><td>{money(i.total,i.currency)}</td></tr>)}</tbody></table><h3>סה״כ: {money(total,'₪')}</h3></div>
-  </section>
+  const [items,setItems]=useState(()=>JSON.parse(localStorage.getItem('boq_items')||'null')||sampleBoq);
+  const [cart,setCart]=useState(()=>JSON.parse(localStorage.getItem('boq_cart')||'[]'));
+  const [q,setQ]=useState('');
+  const [discipline,setDiscipline]=useState('הכל');
+  const [project,setProject]=useState(localStorage.getItem('boq_project')||'');
+  useEffect(()=>localStorage.setItem('boq_items',JSON.stringify(items)),[items]);
+  useEffect(()=>localStorage.setItem('boq_cart',JSON.stringify(cart)),[cart]);
+  useEffect(()=>localStorage.setItem('boq_project',project),[project]);
+  const filtered=items.filter(x=>(discipline==='הכל'||x.discipline===discipline)&&(`${x.desc} ${x.supplier} ${x.sku}`.toLowerCase().includes(q.toLowerCase())));
+  const total=cart.reduce((s,x)=>s+(num(x.total)||num(x.unitPrice)*num(x.qty)),0);
+  const importExcel=(e)=>{const file=e.target.files?.[0]; if(!file) return; readWorkbook(file,(rows)=>{const parsed=rows.map((r,i)=>{const desc=safe(pick(r,['תאור הסעיף/פרק','תיאור הסעיף/פרק','תיאור פריט','תיאור'])); const supplier=safe(pick(r,['ספק','שם ספק','שם ספק/קבלן'])); const resource=safe(pick(r,['תאור משאב','תיאור משאב','תחום עיסוק'])); const qty=num(pick(r,['כמות'])); const unitPrice=num(pick(r,["מחיר ליח' לפני הנחה","מחיר ליחידה לפני הנחה","מחיר ליח'","מחיר יחידה"])); const totalValue=num(pick(r,['מחיר כולל מעמ','מחיר כולל מע"מ','סהכ','סה"כ'])) || qty*unitPrice; return {id:`boq-${Date.now()}-${i}`,desc:desc||'פריט ללא תיאור',supplier:supplier||'-',sku:safe(pick(r,['מקט','מק"ט','מק״ט']))||'-',qty,unitPrice,total:totalValue,currency:safe(pick(r,['מטבע חוזה','מטבע']))||'₪',project:safe(pick(r,['פרויקט']))||'',discipline:detectDiscipline(`${desc} ${supplier} ${resource}`)};}); setItems(parsed);});};
+  const add=(item)=>setCart(prev=>{const ex=prev.find(x=>x.id===item.id); if(ex){return prev.map(x=>x.id===item.id?{...x, selectedQty:num(x.selectedQty)+1,total:(num(x.selectedQty)+1)*num(x.unitPrice)}:x)} return [...prev,{...item,selectedQty:item.qty||1,total:(item.qty||1)*num(item.unitPrice)}];});
+  const setQty=(id,value)=>setCart(prev=>prev.map(x=>x.id===id?{...x,selectedQty:num(value),total:num(value)*num(x.unitPrice)}:x));
+  const exportPDF=()=>{const doc=new jsPDF(); try{doc.addImage(logoBase64,'WEBP',150,8,42,24)}catch(e){} doc.setFontSize(18); doc.text('Galil Group - BOQ Report',10,20); doc.setFontSize(11); doc.text(`Project: ${project||'-'}`,10,30); let y=42; cart.forEach((x,i)=>{doc.text(`${i+1}. ${x.desc}`.slice(0,80),10,y); doc.text(String(money(x.total)),145,y); y+=9; if(y>275){doc.addPage(); y=20;}}); doc.setFontSize(15); doc.text(`Total: ${money(total)}`,10,y+12); doc.save('galil-boq-report.pdf');};
+  const exportExcel=()=>{const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(cart),'BOQ'); XLSX.writeFile(wb,'galil-boq.xlsx');};
+  return <main className="wrap"><section className="panel"><div className="toolbar"><label className="upload"><Upload size={18}/> העלאת Excel<input type="file" accept=".xlsx,.xls" onChange={importExcel}/></label><div className="search"><Search size={18}/><input placeholder="חיפוש פריט / ספק / מקט" value={q} onChange={e=>setQ(e.target.value)}/></div><select value={discipline} onChange={e=>setDiscipline(e.target.value)}>{fields.map(f=><option key={f}>{f}</option>)}</select></div><div className="cards">{filtered.map(item=><article className="card" key={item.id}><b>{item.desc}</b><p>{item.supplier} · {item.sku}</p><span className="badge">{item.discipline}</span><h3>{money(item.total||item.unitPrice)}</h3><button onClick={()=>add(item)}>הוסף לחישוב</button></article>)}</div></section><aside className="side"><h2>סל חישוב</h2><input className="full" placeholder="שם פרויקט" value={project} onChange={e=>setProject(e.target.value)}/>{cart.map(x=><div className="row" key={x.id}><span>{x.desc}</span><input type="number" value={x.selectedQty||1} onChange={e=>setQty(x.id,e.target.value)}/><b>{money(x.total)}</b><button onClick={()=>setCart(c=>c.filter(i=>i.id!==x.id))}><Trash2 size={16}/></button></div>)}<div className="total">סה״כ {money(total)}</div><button className="primary" onClick={exportPDF}><FileText size={18}/> יצוא PDF</button><button onClick={exportExcel}><Download size={18}/> יצוא Excel</button><button onClick={()=>setCart([])}><RotateCcw size={18}/> איפוס סל</button></aside></main>
 }
 
 function SuppliersModule(){
-  const [suppliers,setSuppliers] = useState(()=>JSON.parse(localStorage.getItem('galil_suppliers')||'null') || demoSuppliers);
-  const [query,setQuery] = useState(''); const [disc,setDisc]=useState('כל התחומים');
-  useEffect(()=>localStorage.setItem('galil_suppliers',JSON.stringify(suppliers)),[suppliers]);
-  const load = e => {const file=e.target.files?.[0]; if(!file)return; readExcel(file, rows=>{ const parsed=rows.map((r,i)=>{ const name=clean(get(r,['שם ספק/קבלן','שם ספק','ספק','Supplier','Vendor','שם'])); const field=clean(get(r,['תחום עיסוק','תחום','תחום פעילות','תיאור','תאור','תאור משאב'])); const notes=clean(get(r,['הערות','Notes','תיאור'])); return {id:'sup-'+Date.now()+'-'+i,name:name||'ספק ללא שם',field,discipline: clean(get(r,['דיסציפלינה','Discipline'])) || detectDiscipline(name,field,notes),contact:clean(get(r,['איש קשר','Contact','שם איש קשר'])),phone:clean(get(r,['טלפון','נייד','Phone'])),email:clean(get(r,['מייל','אימייל','Email'])),rating:toNum(get(r,['דירוג','Rating']))||0,status:clean(get(r,['סטטוס','Status']))||'חדש',notes}; }); setSuppliers(parsed); });};
-  const filtered = suppliers.filter(s=>(disc==='כל התחומים'||s.discipline===disc) && [s.name,s.field,s.contact,s.email,s.notes,s.discipline].join(' ').toLowerCase().includes(query.toLowerCase()));
-  const update=(id,patch)=>setSuppliers(p=>p.map(s=>s.id===id?{...s,...patch}:s));
-  const remove=id=>setSuppliers(p=>p.filter(s=>s.id!==id));
-  return <section className="panel suppliersPage"><PanelTitle icon={<Users/>} title="מאגר ספקים" sub="חיפוש לפי שם ספק ותחום, סיווג אוטומטי, דירוג ומחיקה" />
-    <div className="toolbar"><label className="upload"><Upload size={18}/> העלאת Excel ספקים<input type="file" accept=".xlsx,.xls" onChange={load}/></label><div className="search"><Search size={18}/><input placeholder="חפש ספק, תחום, איש קשר או הערה" value={query} onChange={e=>setQuery(e.target.value)}/></div><select value={disc} onChange={e=>setDisc(e.target.value)}>{disciplines.map(d=><option key={d}>{d}</option>)}</select><button onClick={()=>exportExcel(suppliers,'galil-suppliers.xlsx')}><Download size={16}/> ייצוא</button></div>
-    <div className="stats"><Stat label="ספקים" value={suppliers.length}/><Stat label="בתצוגה" value={filtered.length}/><Stat label="מאושרים" value={suppliers.filter(s=>s.status.includes('מאושר')).length}/></div>
-    <div className="supplierGrid">{filtered.map(s=><div className="supplierCard" key={s.id}><div className="supplierHead"><div><span className="tag">{s.discipline}</span><h3>{s.name}</h3><p>{s.field || 'ללא תחום עיסוק'}</p></div><button className="danger" onClick={()=>remove(s.id)}><Trash2 size={17}/></button></div><div className="meta"><span>{s.contact || 'אין איש קשר'}</span><span>{s.phone || 'אין טלפון'}</span><span>{s.email || 'אין מייל'}</span></div><div className="supplierControls"><select value={s.discipline} onChange={e=>update(s.id,{discipline:e.target.value})}>{disciplines.filter(d=>d!=='כל התחומים').map(d=><option key={d}>{d}</option>)}</select><select value={s.status} onChange={e=>update(s.id,{status:e.target.value})}><option>חדש</option><option>בדיקה</option><option>מאושר</option><option>לא פעיל</option></select></div><div className="stars">{[1,2,3,4,5].map(n=><button key={n} onClick={()=>update(s.id,{rating:n})} className={n<=s.rating?'on':''}><Star size={21} fill="currentColor"/></button>)}</div>{s.notes&&<p className="notes">{s.notes}</p>}</div>)}</div>
-  </section>
+  const [suppliers,setSuppliers]=useState(()=>JSON.parse(localStorage.getItem('suppliers')||'null')||sampleSuppliers);
+  const [q,setQ]=useState('');
+  const [field,setField]=useState('הכל');
+  useEffect(()=>localStorage.setItem('suppliers',JSON.stringify(suppliers)),[suppliers]);
+  const filtered=suppliers.filter(s=>(field==='הכל'||s.field===field)&&(`${s.name} ${s.field} ${s.notes}`.toLowerCase().includes(q.toLowerCase())));
+  const importExcel=(e)=>{const file=e.target.files?.[0]; if(!file) return; readWorkbook(file,(rows)=>{const parsed=rows.map((r,i)=>{const name=safe(pick(r,['שם ספק/קבלן','שם ספק','ספק','שם'])); const fieldText=safe(pick(r,['תחום עיסוק','תחום','דיסציפלינה'])); const notes=safe(pick(r,['הערות','תיאור','תאור','תאור משאב','תיאור משאב'])); const detected=fieldText || detectDiscipline(`${name} ${notes}`); return {id:`sup-${Date.now()}-${i}`,name:name||'ספק ללא שם',field:detected,contact:safe(pick(r,['איש קשר','שם איש קשר'])),phone:safe(pick(r,['טלפון','נייד','טלפון ספק'])),email:safe(pick(r,['מייל','אימייל','Email','email'])),rating:num(pick(r,['דירוג']))||0,notes};}); setSuppliers(parsed);});};
+  const update=(id,patch)=>setSuppliers(prev=>prev.map(s=>s.id===id?{...s,...patch}:s));
+  const exportExcel=()=>{const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(suppliers),'Suppliers'); XLSX.writeFile(wb,'galil-suppliers.xlsx');};
+  return <main className="wrap one"><section className="panel"><div className="toolbar"><label className="upload"><Upload size={18}/> העלאת מאגר ספקים<input type="file" accept=".xlsx,.xls" onChange={importExcel}/></label><div className="search"><Search size={18}/><input placeholder="חיפוש ספק / תחום" value={q} onChange={e=>setQ(e.target.value)}/></div><select value={field} onChange={e=>setField(e.target.value)}>{fields.map(f=><option key={f}>{f}</option>)}</select><button onClick={exportExcel}><Download size={18}/> יצוא Excel</button></div><div className="supplierGrid">{filtered.map(s=><article className="supplier" key={s.id}><div className="supplierTop"><h3>{s.name}</h3><button className="danger" onClick={()=>setSuppliers(x=>x.filter(i=>i.id!==s.id))}><Trash2 size={16}/></button></div><select value={s.field} onChange={e=>update(s.id,{field:e.target.value})}>{fields.filter(f=>f!=='הכל').map(f=><option key={f}>{f}</option>)}</select><p>{s.notes||'אין הערות'}</p><small>{s.contact} {s.phone} {s.email}</small><div className="stars">{[1,2,3,4,5].map(n=><button key={n} onClick={()=>update(s.id,{rating:n})} className={n<=s.rating?'on':''}><Star size={20} fill="currentColor"/></button>)}</div></article>)}</div></section></main>
 }
-function PanelTitle({icon,title,sub}){return <div className="panelTitle"><div className="iconBox">{icon}</div><div><h2>{title}</h2><p>{sub}</p></div></div>}
-function Stat({label,value}){return <div className="stat"><span>{label}</span><b>{value}</b></div>}
 
 createRoot(document.getElementById('root')).render(<App/>);
