@@ -16,3 +16,8 @@
 .item:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(30,41,59,.08);border-color:#c7d2fe}
 
 @media(max-width:1050px){.report{grid-column:1 / -1}.catalogTop,.chips{position:static}}
+.disciplineManage{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-6px 0 16px;background:#fff;position:sticky;top:148px;z-index:3;padding:10px 0;border-bottom:1px solid #eef2f7}
+.disciplineManage input{max-width:260px;margin:0}
+.disciplineManage button{background:#eef2ff;color:#3730a3}
+.disciplineManage .dangerMini{background:#fee2e2;color:#b91c1c}
+@media(max-width:1050px){.disciplineManage{position:static}.disciplineManage input{max-width:none}}
