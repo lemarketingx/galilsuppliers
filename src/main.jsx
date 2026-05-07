@@ -398,6 +398,7 @@ const makeId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+// Consolidated supplier parser (codex/refactor path): dedupe + merged Excel uploads + JSON backup/restore support.
 function parseSuppliers(rows) {
   return rows
     .map((row, i) => {
