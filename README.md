@@ -1,32 +1,21 @@
-# Galil Engineering Suite V6 Fixed
+# Galil Engineering Suite V7
 
-כולל תיקונים שבוצעו:
-- שמירה אוטומטית ל־localStorage אחרי טעינה תקינה בלבד
-- מניעת דריסת נתונים בזמן רענון הדף
-- העלאת Excel במיזוג לנתונים קיימים ולא החלפה אוטומטית
-- מניעת כפילויות במחירון BOQ
-- מניעת כפילויות במאגר ספקים
-- גיבוי נתונים לקובץ JSON
-- שחזור נתונים מקובץ JSON
-- מחיקת נתונים שמורים עם אישור
-- כפתור דוגמה עם אישור לפני דריסת נתונים
-- מדריך שימוש מלא בתוך האתר
-- עיצוב משופר בצבעי Galil Group
-- דוח PDF נקי יותר
+גרסה מתוקנת לפריסה ב-Vercel.
+
+מה תוקן:
+- הוסר package-lock.json כדי למנוע כשל npm install ב-Vercel בגלל registry פנימי.
+- שמירה אוטומטית ל-localStorage אחרי טעינה תקינה.
+- מניעת כפילויות בהעלאת BOQ וספקים.
+- העלאת Excel ממזגת נתונים קיימים במקום להחליף.
+- גיבוי ושחזור JSON.
+- מדריך שימוש מובנה.
+- אישור לפני איפוס נתונים.
 
 ## הפעלה מקומית
 npm install
 npm run dev
 
-## Build
-npm run build
-
-## פריסה ב־Vercel
-Build command:
-npm run build
-
-Output directory:
-dist
-
-## חשוב
-הנתונים נשמרים בדפדפן המקומי. אם מנקים דפדפן, מחליפים מחשב או עובדים בדפדפן אחר — הנתונים לא יופיעו. לשמירה ארגונית קבועה צריך בסיס נתונים כמו Supabase/Firebase או שרת פנימי.
+## פריסה ב-Vercel
+Framework: Vite
+Build command: npm run build
+Output directory: dist
