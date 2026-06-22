@@ -597,7 +597,7 @@ function BoqApp() {
   const grandTotal = totals.total + vatAmount;
   const cur = project.currency;
 
-  return <main className="layout">
+  return <main className={'layout' + (result ? ' reportOpen' : '')}>
     {/* #1 Project Bar */}
     <section className="projectBar">
       <div className="projSelect">
