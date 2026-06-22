@@ -734,7 +734,7 @@ function BoqApp() {
 
     {/* SIDEBAR */}
     <aside className="panel sticky">
-      <h2><Calculator /> סל חישוב ({cart.length})</h2>
+      <div className="cartHead"><h2><Calculator /> סל חישוב ({cart.length})</h2>{cart.length > 0 && <button className="clearCartBtn" onClick={() => { if (confirm('לנקות את כל הסל?')) { setCart([]); setResult(false); } }}><Trash2 size={14} /> נקה סל</button>}</div>
       {cart.length === 0 ? <div className="empty">לא נבחרו פריטים</div> : <>
         {/* #7 Cart grouped by discipline */}
         <div className="cartList">{cartGrouped.map(g => <div key={g.id} className="cartGroup">
@@ -826,7 +826,15 @@ function BoqApp() {
     </aside>
 
     {/* REPORT */}
-    {result && <section className="report" ref={reportRef}><div className="reportBox">
+    {result && <section className="report" ref={reportRef}>
+      {/* Floating action bar above report */}
+      <div className="reportBar">
+        <button onClick={() => setResult(false)}><Pencil size={16} /> חזור לעריכה</button>
+        <button onClick={() => { setResult(false); setCart([]); setStatus('הסל נוקה. אפשר להתחיל מחדש.'); }}><Trash2 size={16} /> נקה סל והתחל מחדש</button>
+        <button onClick={() => { setResult(false); setCart([]); setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines); setPercent({ management: 7, contingency: 12, profit: 10, discount: 0 }); setDiscMarkup({}); setProject(p => ({ ...p, name: 'פרויקט חדש', customer: '', status: 'טיוטה' })); setAttachments([]); setVersions([]); setStatus('המערכת אופסה. אפשר להתחיל הכל מאפס.'); }}><RotateCcw size={16} /> אפס הכל מאפס</button>
+        <span className="reportBarInfo">{cart.length} פריטים · {fmt(grandTotal, cur)}</span>
+      </div>
+      <div className="reportBox">
       {/* #16 Print cover */}
       <div className="printCover"><img src={logo} /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
       <div className="reportHead"><img src={logo} /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
@@ -837,6 +845,12 @@ function BoqApp() {
       </div>
       <table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>כמות</th><th>יחידה</th><th>חומרים</th><th>עבודה</th><th>תכנון</th><th>תקורה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}{x.cartNote ? ` (${x.cartNote})` : ''}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(num(x.material) * x.qty, cur)}</td><td>{fmt(num(x.labor) * x.qty, cur)}</td><td>{fmt(num(x.engineering) * x.qty, cur)}</td><td>{fmt(num(x.overhead) * x.qty, cur)}</td><td>{fmt(itemTotal(x) * x.qty, cur)}</td></tr>)}</tbody></table>
       <div className="disclaimer">הנתונים מיועדים לאומדן ראשוני בלבד ודורשים אישור הנדסי/מסחרי לפני שימוש מחייב.</div>
+      <div className="reportBottomActions">
+        <button onClick={() => setResult(false)}><Pencil size={16} /> חזור לעריכה והוסף פריטים</button>
+        <button onClick={exportPDF}><Printer size={16} /> ייצוא PDF</button>
+        <button onClick={exportCSV}><Download size={16} /> ייצוא Excel</button>
+        <button onClick={() => exportRFQ()}><Send size={16} /> RFQ לספק</button>
+      </div>
     </div></section>}
   </main>;
 }
