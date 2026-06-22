@@ -1,28 +1,38 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X } from 'lucide-react';
+import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers } from 'lucide-react';
 import './style.css';
 
-const BOQ_KEY = 'galil_boq_v5_real_sheets_disciplines';
 const SUP_KEY = 'galil_suppliers_v9';
+const PROJ_IDX = 'galil_proj_idx_v2';
+const ACTIVE_PROJ = 'galil_active_proj_v2';
+const FAV_KEY = 'galil_fav_v1';
+const LEGACY_BOQ = 'galil_boq_v5_real_sheets_disciplines';
+const VAT_RATE = 0.17;
 const logo = '/galil-logo.webp';
-const fmt = v => new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(Number(v) || 0);
+
+const fmt = (v, cur = 'ILS') => new Intl.NumberFormat('he-IL', { style: 'currency', currency: cur === 'USD' ? 'USD' : cur === 'EUR' ? 'EUR' : 'ILS', maximumFractionDigits: 0 }).format(Number(v) || 0);
 const num = v => { const n = Number(String(v ?? '').replace(/,/g, '').replace(/[₪$€]/g, '').trim()); return Number.isFinite(n) ? n : 0; };
 const clean = v => String(v ?? '').replace(/\s+/g, ' ').trim();
-const norm = v => String(v ?? '').replace(/[\u200e\u200f]/g, '').replace(/["׳'`’‘״]/g, '').replace(/[\.\/\-_:()\[\]]/g, '').replace(/\s+/g, '').trim().toLowerCase();
+const norm = v => String(v ?? '').replace(/[‎‏]/g, '').replace(/["׳'`''״]/g, '').replace(/[\.\/\-_:()\[\]]/g, '').replace(/\s+/g, '').trim().toLowerCase();
 function getVal(row, aliases) { const n = {}; Object.keys(row || {}).forEach(k => n[norm(k)] = row[k]); for (const a of aliases) { const v = n[norm(a)]; if (v !== undefined && v !== null && String(v).trim() !== '') return v; } return ''; }
+let _idCounter = 0;
+function uid(prefix) { return `${prefix}-${++_idCounter}-${Math.random().toString(36).slice(2, 8)}`; }
+
+const STATUS_OPTIONS = ['טיוטה', 'בבדיקה', 'מאושר', 'נשלח'];
+const STATUS_COLORS = { 'טיוטה': '#94a3b8', 'בבדיקה': '#f59e0b', 'מאושר': '#10b981', 'נשלח': '#6366f1' };
 
 const defaultBoqDisciplines = {
-  piping: { name: 'צנרת', icon: Pipette },
-  electricity: { name: 'חשמל', icon: Zap },
-  fire: { name: 'כיבוי אש', icon: FileText },
-  hvac: { name: 'מיזוג אויר', icon: HardHat },
-  civil: { name: 'הנדסה אזרחית', icon: Building2 },
-  instrumentation: { name: 'מכשור', icon: Calculator }
+  piping: { name: 'צנרת', icon: 'Pipette' }, electricity: { name: 'חשמל', icon: 'Zap' },
+  fire: { name: 'כיבוי אש', icon: 'FileText' }, hvac: { name: 'מיזוג אויר', icon: 'HardHat' },
+  civil: { name: 'הנדסה אזרחית', icon: 'Building2' }, instrumentation: { name: 'מכשור', icon: 'Calculator' }
 };
+const ICON_MAP = { Pipette, Zap, FileText, HardHat, Building2, Calculator };
+const getIcon = name => ICON_MAP[name] || FileText;
+
 function normalizeBoqDisc(v) {
   const s = clean(v).toLowerCase();
   if (!s) return 'general';
@@ -36,12 +46,10 @@ function normalizeBoqDisc(v) {
 }
 function makeDisciplineMapFromSheetNames(sheetNames, existing = defaultBoqDisciplines) {
   const map = { ...existing };
-  sheetNames.forEach(name => {
-    const id = normalizeBoqDisc(name);
-    if (!map[id]) map[id] = { name: clean(name), icon: FileText };
-  });
+  sheetNames.forEach(name => { const id = normalizeBoqDisc(name); if (!map[id]) map[id] = { name: clean(name), icon: 'FileText' }; });
   return map;
 }
+
 const sampleItems = [
   { disciplineId: 'piping', code: 'P-001', desc: 'אספקה והתקנת צינור CS Sch.40 בקוטר 2"', unit: 'מטר', material: 145, labor: 95, engineering: 18, overhead: 22, supplier: 'ספק דוגמה', validity: '30 יום', notes: 'כולל חיתוך וריתוך', defaultQty: 1 },
   { disciplineId: 'electricity', code: 'E-001', desc: 'אספקה והשחלת כבל חשמל 5x10 N2XY', unit: 'מטר', material: 48, labor: 32, engineering: 6, overhead: 8, supplier: 'ספק דוגמה', validity: '45 יום', notes: 'כולל סימון כבלים', defaultQty: 1 },
@@ -50,6 +58,7 @@ const sampleItems = [
   { disciplineId: 'civil', code: 'C-001', desc: 'יציקת בטון C30 כולל טפסנות בסיסית וברזל', unit: 'מ״ק', material: 720, labor: 520, engineering: 95, overhead: 120, supplier: 'קבלן דוגמה', validity: '30 יום', notes: 'לא כולל בדיקות מעבדה', defaultQty: 1 },
   { disciplineId: 'instrumentation', code: 'I-001', desc: 'אספקה והתקנת משדר לחץ כולל חיווט ובדיקת לולאה', unit: 'יח׳', material: 1350, labor: 480, engineering: 220, overhead: 120, supplier: 'ספק מכשור', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 }
 ];
+
 function inferBoqDiscipline(...values) { const t = values.join(' ').toLowerCase(); if (/כיבוי|אש|ספרינקלר|sprinkler|fire|מטף/.test(t)) return 'fire'; if (/מיזוג|אויר|אוויר|hvac|צילר|chiller|מפוח|duct/.test(t)) return 'hvac'; if (/מכשור|בקרה|instrument|control|plc|dcs|scada|חיישן|sensor|transmitter|משדר/.test(t)) return 'instrumentation'; if (/צנרת|צינור|pipe|valve|ברז|flange|אוגן/.test(t)) return 'piping'; if (/חשמל|כבל|לוח|ארון|cable|elect|panel/.test(t)) return 'electricity'; if (/אזרח|בטון|ברזל|חפירה|קבלן|civil|concrete|rebar|עפר/.test(t)) return 'civil'; return 'piping'; }
 function mapBoqRow(row, i, forcedDiscipline = '') {
   const section = getVal(row, ['תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תאור סעיף', 'תיאור סעיף', 'תיאור', 'תאור', 'Description']);
@@ -67,7 +76,7 @@ function mapBoqRow(row, i, forcedDiscipline = '') {
   const calc = unitPrice || (totalVat && qty ? totalVat / qty : 0);
   const desc = clean(section || resource || projectDesc || '');
   const disciplineId = forcedDiscipline ? normalizeBoqDisc(forcedDiscipline) : (discRaw ? normalizeBoqDisc(discRaw) : inferBoqDiscipline(section, resource, projectDesc));
-  return { id: `${disciplineId}-${sku || i}-${Math.random().toString(36).slice(2)}`, disciplineId, code: String(sku || `XL-${i + 1}`), desc: desc || 'פריט ללא תיאור', unit, material: calc, labor: 0, engineering: 0, overhead: 0, supplier: String(supplier || ''), validity: String(quoteDate || ''), notes: String([project && `פרויקט: ${project}`, projectDesc && `תיאור פרויקט: ${projectDesc}`, resource && `משאב: ${resource}`, totalVat && `מחיר כולל מעמ: ${fmt(totalVat)}`].filter(Boolean).join(' | ')), defaultQty: qty, currency: getVal(row, ['מטבע חוזה', 'מטבע', 'Currency']) || 'ILS', totalIncludingVat: totalVat };
+  return { id: uid('item'), disciplineId, code: String(sku || `XL-${i + 1}`), desc: desc || 'פריט ללא תיאור', unit, material: calc, labor: 0, engineering: 0, overhead: 0, supplier: String(supplier || ''), validity: String(quoteDate || ''), notes: String([project && `פרויקט: ${project}`, projectDesc && `תיאור פרויקט: ${projectDesc}`, resource && `משאב: ${resource}`, totalVat && `מחיר כולל מעמ: ${fmt(totalVat)}`].filter(Boolean).join(' | ')), defaultQty: qty, currency: getVal(row, ['מטבע חוזה', 'מטבע', 'Currency']) || 'ILS', totalIncludingVat: totalVat };
 }
 const itemTotal = i => num(i.material) + num(i.labor) + num(i.engineering) + num(i.overhead);
 
@@ -79,229 +88,588 @@ const sampleSuppliers = [
 ];
 function detectSupplierDiscipline(name = '', desc = '', source = '') {
   const manual = clean(source);
-  if (manual) {
-    const exact = SUP_DISCIPLINES.find(d => norm(d) === norm(manual));
-    if (exact) return exact;
-    const partial = SUP_DISCIPLINES.find(d => norm(d).includes(norm(manual)) || norm(manual).includes(norm(d)));
-    if (partial) return partial;
-  }
+  if (manual) { const exact = SUP_DISCIPLINES.find(d => norm(d) === norm(manual)); if (exact) return exact; const partial = SUP_DISCIPLINES.find(d => norm(d).includes(norm(manual)) || norm(manual).includes(norm(d))); if (partial) return partial; }
   const text = `${manual} ${name} ${desc}`.toLowerCase();
   const rules = [['צנרת', ['צנרת', 'צינור', 'pipe', 'valve', 'ברז', 'אוגן']], ['חשמל', ['חשמל', 'כבל', 'לוח חשמל', 'electric', 'cable', 'abb', 'siemens']], ['מכשור ובקרה', ['מכשור', 'בקרה', 'instrument', 'control', 'sensor', 'transmitter']], ['הנדסה אזרחית', ['בטון', 'יציקה', 'קונסטרוקציה', 'חפירה', 'אזרחי', 'civil', 'concrete']], ['מכונות וציוד', ['מכונות', 'ציוד', 'משאבה', 'pump', 'compressor', 'מדחס']], ['מתכת וקונסטרוקציה', ['מתכת', 'קונסטרוקציה', 'steel', 'פלדה', 'ריתוך', 'weld']], ['בידוד וצבע', ['בידוד', 'צבע', 'insulation', 'paint', 'coating']], ['HVAC ומיזוג', ['מיזוג', 'אוורור', 'hvac', 'chiller', 'מפוח']], ['בטיחות וכיבוי אש', ['בטיחות', 'כיבוי', 'אש', 'sprinkler', 'fire']], ['לוגיסטיקה ושילוח', ['לוגיסטיקה', 'שילוח', 'הובלה', 'logistics', 'shipping']], ['כימיקלים וחומרים', ['כימיקל', 'חומר', 'chemical']], ['שירותי תכנון וייעוץ', ['תכנון', 'ייעוץ', 'engineering', 'consulting']], ['הדרכות וכנסים', ['הדרכה', 'כנס', 'training']], ['IT ותוכנה', ['it', 'תוכנה', 'software', 'מחשב']]];
-  for (const [d, ks] of rules) if (ks.some(w => text.includes(w.toLowerCase()))) return d;
-  return 'כללי / אחר';
+  for (const [d, ks] of rules) if (ks.some(w => text.includes(w.toLowerCase()))) return d; return 'כללי / אחר';
 }
-function findHeaderRow(sheet) {
-  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-  for (let r = range.s.r; r <= Math.min(range.s.r + 10, range.e.r); r++) {
-    let filled = 0;
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cell = sheet[XLSX.utils.encode_cell({ r, c })];
-      if (cell && String(cell.v || '').trim()) filled++;
-    }
-    if (filled >= 3) return r;
-  }
-  return 0;
-}
-
-let _idCounter = 0;
-function uid(prefix) { return `${prefix}-${++_idCounter}-${Math.random().toString(36).slice(2,8)}`; }
-
+function findHeaderRow(sheet) { const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1'); for (let r = range.s.r; r <= Math.min(range.s.r + 10, range.e.r); r++) { let filled = 0; for (let c = range.s.c; c <= range.e.c; c++) { const cell = sheet[XLSX.utils.encode_cell({ r, c })]; if (cell && String(cell.v || '').trim()) filled++; } if (filled >= 3) return r; } return 0; }
 function parseWorkbook(wb) {
   const targetSheet = wb.SheetNames.find(n => norm(n).includes('datasheet')) || wb.SheetNames[0];
-  const ws = wb.Sheets[targetSheet];
-  if (!ws) return [];
+  const ws = wb.Sheets[targetSheet]; if (!ws) return [];
   const headerRow = findHeaderRow(ws);
   const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false, range: headerRow });
   const seen = new Set();
-  return rows
-    .filter(row => Object.values(row).some(v => String(v ?? '').trim() !== ''))
-    .map((row, i) => {
-      const supplierNo = clean(getVal(row, ['מספר ספק', "מס' ספק/קבלן", 'מס ספק/קבלן', 'מספר ספק/קבלן', 'מק״ט', 'מקט', 'supplier number', 'supplierNo']));
-      const name = clean(getVal(row, ['שם ספק', 'שם ספק/קבלן', 'ספק', 'supplier', 'vendor', 'שם']));
-      const field = clean(getVal(row, ['תחום', 'תחום עיסוק', 'דיסציפלינה', 'discipline', 'category', 'קטגוריה', 'field']));
-      const description = clean(getVal(row, ['תחום פעילות מורחב', 'תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תיאור', 'תאור', 'description', 'תאור משאב']));
-      const address = clean(getVal(row, ['כתובת', 'address']));
-      const cityCountry = clean(getVal(row, ['עיר ומדינה', 'עיר', 'city', 'cityCountry']));
-      const zip = clean(getVal(row, ['מיקוד', 'zip', 'postal code']));
-      const country = clean(getVal(row, ['ארץ', 'מדינה', 'country']));
-      const phone = clean(getVal(row, ['מספר טלפון', 'טלפון', 'נייד', 'phone', 'mobile']));
-      const fax = clean(getVal(row, ['פקס', 'fax']));
-      const contact = clean(getVal(row, ['איש קשר', 'contact', 'contact person']));
-      const email = clean(getVal(row, ['מייל', 'אימייל', 'דואל', 'email', 'דוא"ל', 'mail', 'e-mail']));
-      const certainty = clean(getVal(row, ['ודאות', 'certainty']));
-      const notes = clean(getVal(row, ['הערות', 'notes', 'הערה']));
+  return rows.filter(row => Object.values(row).some(v => String(v ?? '').trim() !== '')).map((row, i) => {
+    const supplierNo = clean(getVal(row, ['מספר ספק', "מס' ספק/קבלן", 'מס ספק/קבלן', 'מספר ספק/קבלן', 'מק״ט', 'מקט', 'supplier number', 'supplierNo']));
+    const name = clean(getVal(row, ['שם ספק', 'שם ספק/קבלן', 'ספק', 'supplier', 'vendor', 'שם']));
+    const field = clean(getVal(row, ['תחום', 'תחום עיסוק', 'דיסציפלינה', 'discipline', 'category', 'קטגוריה', 'field']));
+    const description = clean(getVal(row, ['תחום פעילות מורחב', 'תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תיאור', 'תאור', 'description', 'תאור משאב']));
+    const address = clean(getVal(row, ['כתובת', 'address'])); const cityCountry = clean(getVal(row, ['עיר ומדינה', 'עיר', 'city', 'cityCountry']));
+    const zip = clean(getVal(row, ['מיקוד', 'zip', 'postal code'])); const country = clean(getVal(row, ['ארץ', 'מדינה', 'country']));
+    const phone = clean(getVal(row, ['מספר טלפון', 'טלפון', 'נייד', 'phone', 'mobile'])); const fax = clean(getVal(row, ['פקס', 'fax']));
+    const contact = clean(getVal(row, ['איש קשר', 'contact', 'contact person']));
+    const email = clean(getVal(row, ['מייל', 'אימייל', 'דואל', 'email', 'דוא"ל', 'mail', 'e-mail']));
+    const certainty = clean(getVal(row, ['ודאות', 'certainty'])); const notes = clean(getVal(row, ['הערות', 'notes', 'הערה']));
+    if (supplierNo && seen.has(supplierNo)) return null; if (supplierNo) seen.add(supplierNo); if (!name && !supplierNo) return null;
+    return { id: uid('sup'), supplierNo, name: name || 'ספק ללא שם', field: field || description || '', description: description || '', discipline: detectSupplierDiscipline(name, description || '', field || description || ''), address, cityCountry, zip, country, phone, fax, email, contact, certainty, notes, rating: 0, importedAt: new Date().toLocaleDateString('he-IL') };
+  }).filter(Boolean);
+}
+function parseSuppliers(rows) { return rows.map((row, i) => { const name = clean(getVal(row, ['שם ספק/קבלן', 'שם ספק', 'ספק', 'supplier', 'vendor', 'שם'])); const desc = clean(getVal(row, ['תחום פעילות מורחב', 'תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תיאור', 'תאור', 'description', 'תאור משאב'])); const source = clean(getVal(row, ['תחום', 'תחום עיסוק', 'דיסציפלינה', 'discipline', 'category', 'קטגוריה'])); const supplierNo = clean(getVal(row, ['מספר ספק', "מס' ספק/קבלן", 'מס ספק/קבלן', 'מספר ספק/קבלן', 'מק״ט', 'מקט', 'supplier number'])); const project = clean(getVal(row, ['פרויקט', 'project'])); const phone = clean(getVal(row, ['מספר טלפון', 'טלפון', 'נייד', 'phone', 'mobile'])); const email = clean(getVal(row, ['מייל', 'אימייל', 'דואל', 'email'])); const contact = clean(getVal(row, ['איש קשר', 'contact', 'contact person'])); const field = clean(getVal(row, ['תחום', 'תחום עיסוק', 'field'])); return { id: uid('ps'), project, supplierNo, name: name || 'ספק ללא שם', description: desc, field: field || desc || '', discipline: detectSupplierDiscipline(name, desc, source), contact, phone, email, rating: 0, notes: '', importedAt: new Date().toLocaleDateString('he-IL') }; }).filter(s => s.name !== 'ספק ללא שם' || s.description || s.supplierNo || s.project); }
 
-      const effectiveField = field || description || '';
-      const effectiveDesc = description || '';
+/* ====== PROJECT MANAGEMENT ====== */
+const projKey = id => `galil_proj_${id}`;
+const loadIdx = () => { try { return JSON.parse(localStorage.getItem(PROJ_IDX)) || []; } catch { return []; } };
+const saveIdx = list => localStorage.setItem(PROJ_IDX, JSON.stringify(list));
+const loadProj = id => { try { return JSON.parse(localStorage.getItem(projKey(id))); } catch { return null; } };
+const saveProj = (id, data) => localStorage.setItem(projKey(id), JSON.stringify(data));
+const delProj = id => localStorage.removeItem(projKey(id));
 
-      if (supplierNo && seen.has(supplierNo)) return null;
-      if (supplierNo) seen.add(supplierNo);
+const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentation: 'מכשור ובקרה', civil: 'הנדסה אזרחית', hvac: 'HVAC ומיזוג', fire: 'בטיחות וכיבוי אש' };
 
-      if (!name && !supplierNo) return null;
-
-      return {
-        id: uid('sup'),
-        supplierNo,
-        name: name || 'ספק ללא שם',
-        field: effectiveField,
-        description: effectiveDesc,
-        discipline: detectSupplierDiscipline(name, effectiveDesc, effectiveField),
-        address,
-        cityCountry,
-        zip,
-        country,
-        phone,
-        fax,
-        email,
-        contact,
-        certainty,
-        notes,
-        rating: 0,
-        importedAt: new Date().toLocaleDateString('he-IL')
-      };
-    })
-    .filter(Boolean);
+/* ====== SHELL ====== */
+function Shell() {
+  const [tab, setTab] = useState('boq');
+  return <div className="app" dir="rtl">
+    <header className="top"><div className="brand"><img src={logo} /><div><span>GALIL GROUP</span><h1>מערכת הנדסה ורכש</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
+    <nav><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
+    {tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
+  </div>;
 }
 
-function parseSuppliers(rows) { return rows.map((row, i) => { const name = clean(getVal(row, ['שם ספק/קבלן', 'שם ספק', 'ספק', 'supplier', 'vendor', 'שם'])); const desc = clean(getVal(row, ['תחום פעילות מורחב', 'תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תיאור', 'תאור', 'description', 'תאור משאב'])); const source = clean(getVal(row, ['תחום', 'תחום עיסוק', 'דיסציפלינה', 'discipline', 'category', 'קטגוריה'])); const supplierNo = clean(getVal(row, ['מספר ספק', "מס' ספק/קבלן", 'מס ספק/קבלן', 'מספר ספק/קבלן', 'מק״ט', 'מקט', 'supplier number'])); const project = clean(getVal(row, ['פרויקט', 'project'])); const phone = clean(getVal(row, ['מספר טלפון', 'טלפון', 'נייד', 'phone', 'mobile'])); const email = clean(getVal(row, ['מייל', 'אימייל', 'דואל', 'email'])); const contact = clean(getVal(row, ['איש קשר', 'contact', 'contact person'])); const field = clean(getVal(row, ['תחום', 'תחום עיסוק', 'field'])); return { id: `${Date.now()}-${i}-${supplierNo || name || Math.random()}`, project, supplierNo, name: name || 'ספק ללא שם', description: desc, field: field || desc || '', discipline: detectSupplierDiscipline(name, desc, source), contact, phone, email, rating: 0, notes: '', importedAt: new Date().toLocaleDateString('he-IL') }; }).filter(s => s.name !== 'ספק ללא שם' || s.description || s.supplierNo || s.project); }
-
-function Shell() { const [tab, setTab] = useState('boq'); return <div className="app" dir="rtl"><header className="top"><div className="brand"><img src={logo} /><div><span>GALIL GROUP</span><h1>מערכת הנדסה ורכש</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div><nav><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>{tab === 'boq' ? <BoqApp /> : <SuppliersApp />}</div>; }
-
+/* ====== BOQ APP ====== */
 function BoqApp() {
-  const inputRef = useRef(null); const reportRef = useRef(null);
-  const [items, setItems] = useState(sampleItems); const [boqDisciplines, setBoqDisciplines] = useState(defaultBoqDisciplines); const [newDiscipline, setNewDiscipline] = useState(''); const [cart, setCart] = useState([]); const [query, setQuery] = useState(''); const [disc, setDisc] = useState('all'); const [status, setStatus] = useState('נטען מחירון דוגמה. אפשר להעלות Excel אמיתי.'); const [project, setProject] = useState({ name: 'אומדן פרויקט חדש', customer: 'לקוח / מחלקה', estimator: 'קבוצת גליל', currency: 'ILS' }); const [percent, setPercent] = useState({ management: 7, contingency: 12, profit: 10, discount: 0 }); const [result, setResult] = useState(false);
-  const [boqLoaded, setBoqLoaded] = useState(false);
-  useEffect(() => { const s = localStorage.getItem(BOQ_KEY); if (s) { try { const d = JSON.parse(s); setItems(d.items || sampleItems); setBoqDisciplines(d.boqDisciplines || defaultBoqDisciplines); setCart(d.cart || []); setProject(d.project || project); setPercent(d.percent || percent); } catch {} } setBoqLoaded(true); }, []);
-  useEffect(() => { if (boqLoaded) localStorage.setItem(BOQ_KEY, JSON.stringify({ items, boqDisciplines, cart, project, percent })); }, [items, boqDisciplines, cart, project, percent, boqLoaded]);
-  const filtered = useMemo(() => items.filter(x => (disc === 'all' || x.disciplineId === disc) && `${x.desc} ${x.supplier} ${x.code} ${x.notes}`.toLowerCase().includes(query.toLowerCase())), [items, disc, query]);
-  const add = item => setCart(prev => { const ex = prev.find(x => x.code === item.code && x.disciplineId === item.disciplineId && x.desc === item.desc); if (ex) return prev.map(x => x === ex ? { ...x, qty: x.qty + (item.defaultQty || 1) } : x); return [...prev, { ...item, id: `cart-${Date.now()}-${Math.random()}`, qty: item.defaultQty || 1 }]; });
-  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const all = []; const newMap = makeDisciplineMapFromSheetNames(wb.SheetNames, defaultBoqDisciplines); wb.SheetNames.forEach(sheetName => { const ws = wb.Sheets[sheetName]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }); rows.forEach((row, i) => { const mapped = mapBoqRow(row, all.length + i, sheetName); if (mapped.desc !== 'פריט ללא תיאור' || itemTotal(mapped) > 0) all.push(mapped); }); }); setBoqDisciplines(newMap); setItems(all.length ? all : sampleItems); setDisc('all'); setResult(false); setStatus(`נטענו ${all.length.toLocaleString('he-IL')} פריטים מתוך ${wb.SheetNames.length} לשוניות. כל לשונית סווגה כדיסציפלינה.`); } catch (err) { console.error(err); setStatus('שגיאה בקריאת הקובץ. בדוק שהקובץ הוא Excel תקין.'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
-  const addDiscipline = () => { const name = clean(newDiscipline); if (!name) return; const id = normalizeBoqDisc(name); setBoqDisciplines(prev => ({ ...prev, [id]: { name, icon: FileText } })); setDisc(id); setNewDiscipline(''); };
-  const deleteDiscipline = id => { if (disc === 'all' || !boqDisciplines[id]) return; setBoqDisciplines(prev => { const next = { ...prev }; delete next[id]; return next; }); setItems(prev => prev.filter(x => x.disciplineId !== id)); setCart(prev => prev.filter(x => x.disciplineId !== id)); setDisc('all'); };
-  const totals = useMemo(() => { const material = cart.reduce((s, x) => s + num(x.material) * x.qty, 0); const labor = cart.reduce((s, x) => s + num(x.labor) * x.qty, 0); const eng = cart.reduce((s, x) => s + num(x.engineering) * x.qty, 0); const overhead = cart.reduce((s, x) => s + num(x.overhead) * x.qty, 0); const direct = material + labor + eng + overhead; const management = direct * percent.management / 100; const contingency = direct * percent.contingency / 100; const beforeDiscount = direct + management + contingency; const discount = beforeDiscount * percent.discount / 100; const profit = (beforeDiscount - discount) * percent.profit / 100; return { material, labor, eng, overhead, direct, management, contingency, discount, profit, total: beforeDiscount - discount + profit }; }, [cart, percent]);
-  const byDisc = useMemo(() => Object.entries(boqDisciplines).map(([id, d]) => ({ id, name: d.name, total: cart.filter(x => x.disciplineId === id).reduce((s, x) => s + itemTotal(x) * x.qty, 0) })), [cart, boqDisciplines]);
-  const save = () => { localStorage.setItem(BOQ_KEY, JSON.stringify({ items, boqDisciplines, cart, project, percent })); alert('הפרויקט נשמר'); };
-  const reset = () => { setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines); setCart([]); setDisc('all'); setResult(false); setStatus('חזרת למחירון דוגמה'); };
-  const exportCSV = () => { const data = cart.map(x => ({ 'דיסציפלינה': boqDisciplines[x.disciplineId]?.name || x.disciplineId, 'מק״ט': x.code, 'תיאור': x.desc, 'כמות': x.qty, 'יחידה': x.unit, 'עלות יחידה': itemTotal(x), 'סה״כ': itemTotal(x) * x.qty })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ'); XLSX.writeFile(wb, 'galil-boq.xlsx'); };
-  const exportPDF = async () => { setResult(true); setTimeout(async () => { if (!reportRef.current) return; const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true }); const img = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const w = 210, h = canvas.height * w / canvas.width; pdf.addImage(img, 'PNG', 0, 0, w, h); pdf.save('galil-boq-report.pdf'); }, 100); };
-  return <main className="layout"><section className="left"><div className="panel upload"><div><h2><UploadCloud /> העלאת מחירון Excel</h2><p>המערכת קוראת את כל הלשוניות בקובץ. שם כל לשונית הופך לדיסציפלינה באתר.</p><div className="status"><CheckCircle2 size={16} />{status}</div></div><div className="actions"><input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden onChange={upload} /><button onClick={() => inputRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button><button onClick={reset}><RotateCcw size={18} /> דוגמה</button></div></div><div className="panel"><h2><Database /> פרטי פרויקט</h2><div className="formGrid"><Field label="שם פרויקט" value={project.name} onChange={v => setProject({ ...project, name: v })} /><Field label="לקוח / מחלקה" value={project.customer} onChange={v => setProject({ ...project, customer: v })} /><Field label="עורך אומדן" value={project.estimator} onChange={v => setProject({ ...project, estimator: v })} /><Field label="מטבע" value={project.currency} onChange={v => setProject({ ...project, currency: v })} /></div></div><div className="panel"><div className="catalogTop"><div><h2><Calculator /> מחירון פריטים</h2><p>חיפוש, סינון לפי דיסציפלינה והוספה לסל הפרויקט.</p></div><div className="search"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש פריט / ספק / מק״ט" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div></div><div className="chips"><button className={disc === 'all' ? 'selected' : ''} onClick={() => setDisc('all')}>הכל</button>{Object.entries(boqDisciplines).map(([id, d]) => <button key={id} className={disc === id ? 'selected' : ''} onClick={() => setDisc(id)}>{d.name}</button>)}</div><div className="disciplineManage"><input value={newDiscipline} onChange={e => setNewDiscipline(e.target.value)} placeholder="הוסף דיסציפלינה ידנית" /><button onClick={addDiscipline}><Plus size={16} /> הוסף דיסציפלינה</button>{disc !== 'all' && <button className="dangerMini" onClick={() => deleteDiscipline(disc)}><Trash2 size={16} /> מחק דיסציפלינה נבחרת</button>}</div><div className="items">{filtered.length === 0 && <div className="emptyResults"><b>לא נמצאו פריטים</b><p>{query ? `לא נמצאו תוצאות עבור "${query}"` : 'אין פריטים בדיסציפלינה זו'}</p></div>}{filtered.map((it, idx) => { const Icon = boqDisciplines[it.disciplineId]?.icon || FileText; return <div className="item" key={`${it.id}-${idx}`}><div className="itemIcon"><Icon size={22} /></div><div className="itemText"><b>{it.desc}</b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · מק״ט: {it.code} · ספק: {it.supplier || '-'} · יחידה: {it.unit}</span><small>{it.notes}</small></div><div className="price"><b>{fmt(itemTotal(it))}</b><button onClick={() => add(it)}><Plus size={16} /> הוסף</button></div></div>; })}</div></div></section><aside className="panel sticky"><h2><Calculator /> סל חישוב</h2>{cart.length === 0 ? <div className="empty">לא נבחרו פריטים</div> : <div className="cartList">{cart.map(x => <div className="cart" key={x.id}><button onClick={() => setCart(p => p.filter(z => z.id !== x.id))}><Trash2 size={16} /></button><b>{x.desc}</b><div><input type="number" value={x.qty} onChange={e => setCart(p => p.map(z => z.id === x.id ? { ...z, qty: num(e.target.value) } : z))} /><span>{x.unit}</span><strong>{fmt(itemTotal(x) * x.qty)}</strong></div></div>)}</div>}<div className="percentGrid"><Field label="ניהול %" type="number" value={percent.management} onChange={v => setPercent({ ...percent, management: num(v) })} /><Field label="בלתי צפוי %" type="number" value={percent.contingency} onChange={v => setPercent({ ...percent, contingency: num(v) })} /><Field label="רווח %" type="number" value={percent.profit} onChange={v => setPercent({ ...percent, profit: num(v) })} /><Field label="הנחה %" type="number" value={percent.discount} onChange={v => setPercent({ ...percent, discount: num(v) })} /></div><button className="calc" disabled={!cart.length} onClick={() => setResult(true)}>חשב פרויקט</button><div className="sideBtns"><button onClick={save}><Save size={16} /> שמור</button><button onClick={exportCSV}><Download size={16} /> Excel</button><button onClick={exportPDF}><Printer size={16} /> PDF</button></div><div className="totalBox"><span>סה״כ</span><b>{fmt(totals.total)}</b></div></aside>{result && <section className="report" ref={reportRef}><div className="reportBox"><div className="reportHead"><img src={logo} /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {new Date().toLocaleDateString('he-IL')}</p></div><button onClick={exportPDF}>PDF</button></div><div className="kpis"><K title="חומרים" value={fmt(totals.material)} /><K title="עבודה" value={fmt(totals.labor)} /><K title="תכנון" value={fmt(totals.eng)} /><K title="סה״כ" value={fmt(totals.total)} big /></div><div className="reportGrid"><div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDisc.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div><div className="box"><h3>סיכום מסחרי</h3><Line l="עלות ישירה" v={totals.direct} /><Line l={`ניהול ${percent.management}%`} v={totals.management} /><Line l={`בלתי צפוי ${percent.contingency}%`} v={totals.contingency} /><Line l={`הנחה ${percent.discount}%`} v={-totals.discount} /><Line l={`רווח ${percent.profit}%`} v={totals.profit} /><div className="grand"><span>סה״כ אומדן</span><b>{fmt(totals.total)}</b></div></div></div><table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>כמות</th><th>יחידה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(itemTotal(x) * x.qty)}</td></tr>)}</tbody></table><div className="disclaimer">הנתונים מיועדים לאומדן ראשוני בלבד ודורשים אישור הנדסי/מסחרי לפני שימוש מחייב.</div></div></section>}</main>;
+  const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null);
+  const [items, setItems] = useState(sampleItems);
+  const [boqDisciplines, setBoqDisciplines] = useState(defaultBoqDisciplines);
+  const [newDiscipline, setNewDiscipline] = useState('');
+  const [cart, setCart] = useState([]);
+  const [query, setQuery] = useState('');
+  const [disc, setDisc] = useState('all');
+  const [status, setStatus] = useState('נטען מחירון דוגמה.');
+  const [project, setProject] = useState({ name: 'אומדן פרויקט חדש', customer: 'לקוח / מחלקה', estimator: 'קבוצת גליל', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+  const [percent, setPercent] = useState({ management: 7, contingency: 12, profit: 10, discount: 0 });
+  const [result, setResult] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // #1 Multi-project
+  const [projects, setProjects] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+
+  // #4 Checkbox multi-select
+  const [selected, setSelected] = useState(new Set());
+
+  // #7 Sort
+  const [sortMode, setSortMode] = useState('default');
+
+  // #8 Favorites
+  const [favorites, setFavorites] = useState(new Set());
+  const [favOnly, setFavOnly] = useState(false);
+
+  // #3 VAT
+  const [showVat, setShowVat] = useState(false);
+
+  // #6 Inline cart edit
+  const [expandedCart, setExpandedCart] = useState(new Set());
+
+  // #9 Discipline markup
+  const [discMarkup, setDiscMarkup] = useState({});
+  const [showDiscMarkup, setShowDiscMarkup] = useState(false);
+
+  // #5 Add manual item
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newItem, setNewItem] = useState({ desc: '', code: '', unit: 'יח׳', material: 0, labor: 0, engineering: 0, overhead: 0, disciplineId: 'piping', supplier: '' });
+
+  // #14 Attachments
+  const [attachments, setAttachments] = useState([]);
+
+  // #11 Version history
+  const [versions, setVersions] = useState([]);
+  const [showCompare, setShowCompare] = useState(false);
+
+  // #12 Supplier hints
+  const [supplierHints, setSupplierHints] = useState([]);
+
+  // Gather project state into saveable object
+  const getState = useCallback(() => ({
+    items, boqDisciplines, cart, project, percent, discMarkup,
+    attachments: attachments.map(a => ({ ...a, dataUrl: a.dataUrl?.length < 2000000 ? a.dataUrl : null })),
+    versions
+  }), [items, boqDisciplines, cart, project, percent, discMarkup, attachments, versions]);
+
+  const applyState = useCallback((d) => {
+    if (!d) return;
+    setItems(d.items || sampleItems);
+    setBoqDisciplines(d.boqDisciplines || defaultBoqDisciplines);
+    setCart(d.cart || []);
+    setProject(d.project || { name: 'פרויקט חדש', customer: '', estimator: 'קבוצת גליל', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+    setPercent(d.percent || { management: 7, contingency: 12, profit: 10, discount: 0 });
+    setDiscMarkup(d.discMarkup || {});
+    setAttachments(d.attachments || []);
+    setVersions(d.versions || []);
+    setResult(false); setDisc('all'); setQuery(''); setSelected(new Set()); setExpandedCart(new Set());
+  }, []);
+
+  // Init
+  useEffect(() => {
+    const idx = loadIdx();
+    setProjects(idx);
+    const aid = localStorage.getItem(ACTIVE_PROJ);
+    if (aid) { const d = loadProj(aid); if (d) { applyState(d); setActiveId(aid); } else if (idx.length) { const d2 = loadProj(idx[0].id); applyState(d2); setActiveId(idx[0].id); } }
+    else if (idx.length) { const d2 = loadProj(idx[0].id); applyState(d2); setActiveId(idx[0].id); }
+    else {
+      const legacy = localStorage.getItem(LEGACY_BOQ);
+      if (legacy) { try { const d = JSON.parse(legacy); setItems(d.items || sampleItems); setBoqDisciplines(d.boqDisciplines || defaultBoqDisciplines); setCart(d.cart || []); setProject(d.project || project); setPercent(d.percent || percent); } catch {} }
+      const id = uid('proj');
+      setActiveId(id);
+      const meta = { id, name: 'פרויקט ראשון', status: 'טיוטה', updatedAt: new Date().toISOString() };
+      setProjects([meta]); saveIdx([meta]);
+    }
+    try { setFavorites(new Set(JSON.parse(localStorage.getItem(FAV_KEY)) || [])); } catch {}
+    try { setSupplierHints(JSON.parse(localStorage.getItem(SUP_KEY)) || []); } catch {}
+    setLoaded(true);
+  }, []);
+
+  // Auto-save
+  useEffect(() => {
+    if (!loaded || !activeId) return;
+    const timer = setTimeout(() => {
+      saveProj(activeId, getState());
+      const idx = loadIdx().map(p => p.id === activeId ? { ...p, name: project.name, status: project.status, updatedAt: new Date().toISOString() } : p);
+      if (!idx.find(p => p.id === activeId)) idx.push({ id: activeId, name: project.name, status: project.status, updatedAt: new Date().toISOString() });
+      saveIdx(idx); setProjects(idx);
+      localStorage.setItem(ACTIVE_PROJ, activeId);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [items, boqDisciplines, cart, project, percent, discMarkup, attachments, versions, loaded, activeId]);
+
+  // Save favorites
+  useEffect(() => { if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }, [favorites, loaded]);
+
+  // #15 Keyboard shortcuts
+  useEffect(() => {
+    const h = e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveManual(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'Escape') { setQuery(''); setShowAddForm(false); setShowCompare(false); }
+    };
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  // Filtering & sorting
+  const filtered = useMemo(() => {
+    let arr = items.filter(x => (disc === 'all' || x.disciplineId === disc) && `${x.desc} ${x.supplier} ${x.code} ${x.notes}`.toLowerCase().includes(query.toLowerCase()));
+    if (favOnly) arr = arr.filter(x => favorites.has(x.code));
+    if (sortMode === 'price-asc') arr = [...arr].sort((a, b) => itemTotal(a) - itemTotal(b));
+    else if (sortMode === 'price-desc') arr = [...arr].sort((a, b) => itemTotal(b) - itemTotal(a));
+    else if (sortMode === 'name') arr = [...arr].sort((a, b) => a.desc.localeCompare(b.desc));
+    return arr;
+  }, [items, disc, query, favOnly, favorites, sortMode]);
+
+  const add = item => setCart(prev => { const ex = prev.find(x => x.code === item.code && x.disciplineId === item.disciplineId && x.desc === item.desc); if (ex) return prev.map(x => x === ex ? { ...x, qty: x.qty + (item.defaultQty || 1) } : x); return [...prev, { ...item, id: uid('cart'), qty: item.defaultQty || 1, cartNote: '' }]; });
+  const addSelected = () => { const toAdd = items.filter(x => selected.has(x.id || x.code)); toAdd.forEach(add); setSelected(new Set()); };
+  const toggleSelect = id => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const selectAll = () => { if (selected.size === filtered.length) setSelected(new Set()); else setSelected(new Set(filtered.map(x => x.id || x.code))); };
+
+  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const all = []; const newMap = makeDisciplineMapFromSheetNames(wb.SheetNames, defaultBoqDisciplines); wb.SheetNames.forEach(sheetName => { const ws = wb.Sheets[sheetName]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }); rows.forEach((row, i) => { const mapped = mapBoqRow(row, all.length + i, sheetName); if (mapped.desc !== 'פריט ללא תיאור' || itemTotal(mapped) > 0) all.push(mapped); }); }); setBoqDisciplines(newMap); setItems(all.length ? all : sampleItems); setDisc('all'); setResult(false); setSelected(new Set()); setStatus(`נטענו ${all.length.toLocaleString('he-IL')} פריטים מתוך ${wb.SheetNames.length} לשוניות.`); } catch (err) { console.error(err); setStatus('שגיאה בקריאת הקובץ.'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
+  const addDiscipline = () => { const name = clean(newDiscipline); if (!name) return; const id = normalizeBoqDisc(name); setBoqDisciplines(prev => ({ ...prev, [id]: { name, icon: 'FileText' } })); setDisc(id); setNewDiscipline(''); };
+  const deleteDiscipline = id => { if (disc === 'all' || !boqDisciplines[id]) return; if (!confirm('למחוק דיסציפלינה וכל הפריטים שלה?')) return; setBoqDisciplines(prev => { const next = { ...prev }; delete next[id]; return next; }); setItems(prev => prev.filter(x => x.disciplineId !== id)); setCart(prev => prev.filter(x => x.disciplineId !== id)); setDisc('all'); };
+
+  // #5 Add manual item
+  const addManualItem = () => {
+    if (!newItem.desc) return;
+    const item = { ...newItem, id: uid('man'), defaultQty: 1, validity: '', notes: 'פריט ידני', currency: 'ILS' };
+    setItems(prev => [...prev, item]);
+    setNewItem({ desc: '', code: '', unit: 'יח׳', material: 0, labor: 0, engineering: 0, overhead: 0, disciplineId: disc === 'all' ? 'piping' : disc, supplier: '' });
+    setShowAddForm(false); setStatus('נוסף פריט ידני.');
+  };
+
+  // #9 Get effective markup per discipline
+  const getMarkup = dId => ({ ...percent, ...(discMarkup[dId] || {}) });
+
+  // Totals calculation with per-discipline markup
+  const totals = useMemo(() => {
+    let material = 0, labor = 0, eng = 0, overhead = 0, direct = 0, management = 0, contingency = 0, discountTotal = 0, profitTotal = 0;
+    const byDisc = {};
+    cart.forEach(x => {
+      const t = itemTotal(x) * x.qty;
+      const m = num(x.material) * x.qty, l = num(x.labor) * x.qty, e = num(x.engineering) * x.qty, o = num(x.overhead) * x.qty;
+      material += m; labor += l; eng += e; overhead += o;
+      const mk = getMarkup(x.disciplineId);
+      const d = m + l + e + o;
+      management += d * mk.management / 100;
+      contingency += d * mk.contingency / 100;
+      const bfd = d + d * mk.management / 100 + d * mk.contingency / 100;
+      const disc = bfd * mk.discount / 100;
+      discountTotal += disc;
+      profitTotal += (bfd - disc) * mk.profit / 100;
+      if (!byDisc[x.disciplineId]) byDisc[x.disciplineId] = 0;
+      byDisc[x.disciplineId] += t;
+    });
+    direct = material + labor + eng + overhead;
+    const beforeDiscount = direct + management + contingency;
+    const total = beforeDiscount - discountTotal + profitTotal;
+    const rate = num(project.exchangeRate) || 1;
+    return { material, labor, eng, overhead, direct, management, contingency, discount: discountTotal, profit: profitTotal, total, totalConverted: total * rate, byDisc };
+  }, [cart, percent, discMarkup, project.exchangeRate]);
+
+  const byDiscArr = useMemo(() => Object.entries(boqDisciplines).map(([id, d]) => ({ id, name: d.name, total: totals.byDisc[id] || 0 })), [totals.byDisc, boqDisciplines]);
+
+  // #7 Cart grouped by discipline
+  const cartGrouped = useMemo(() => {
+    const groups = {};
+    cart.forEach(x => { if (!groups[x.disciplineId]) groups[x.disciplineId] = []; groups[x.disciplineId].push(x); });
+    return Object.entries(groups).map(([id, items]) => ({ id, name: boqDisciplines[id]?.name || id, items, subtotal: items.reduce((s, x) => s + itemTotal(x) * x.qty, 0) }));
+  }, [cart, boqDisciplines]);
+
+  // #12 Supplier matches for a discipline
+  const getSupplierMatches = dId => {
+    const supDisc = DISC_TO_SUP[dId];
+    if (!supDisc) return [];
+    return supplierHints.filter(s => s.discipline === supDisc).slice(0, 3);
+  };
+
+  // Save manual + version snapshot
+  const saveManual = () => {
+    const snap = { id: uid('ver'), savedAt: new Date().toISOString(), totalSnapshot: totals.total, cartCount: cart.length };
+    setVersions(prev => [...prev.slice(-9), snap]);
+    setStatus('הפרויקט נשמר.');
+  };
+
+  // #1 Project management
+  const newProject = () => {
+    if (activeId) saveProj(activeId, getState());
+    const id = uid('proj');
+    const meta = { id, name: 'פרויקט חדש', status: 'טיוטה', updatedAt: new Date().toISOString() };
+    const idx = [...loadIdx(), meta]; saveIdx(idx); setProjects(idx);
+    setActiveId(id); localStorage.setItem(ACTIVE_PROJ, id);
+    applyState(null); setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines);
+    setProject({ name: 'פרויקט חדש', customer: '', estimator: 'קבוצת גליל', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+    setStatus('נוצר פרויקט חדש.');
+  };
+  const switchProject = id => {
+    if (id === activeId) return;
+    if (activeId) saveProj(activeId, getState());
+    const d = loadProj(id); applyState(d); setActiveId(id); localStorage.setItem(ACTIVE_PROJ, id);
+    setStatus(`נטען פרויקט: ${d?.project?.name || id}`);
+  };
+  const duplicateProject = () => {
+    const id = uid('proj');
+    const data = { ...getState(), project: { ...project, name: project.name + ' (העתק)' } };
+    saveProj(id, data);
+    const meta = { id, name: data.project.name, status: 'טיוטה', updatedAt: new Date().toISOString() };
+    const idx = [...loadIdx(), meta]; saveIdx(idx); setProjects(idx);
+    switchProject(id); setStatus('הפרויקט שוכפל.');
+  };
+  const deleteProjectById = id => {
+    if (!confirm('למחוק את הפרויקט?')) return;
+    delProj(id);
+    const idx = loadIdx().filter(p => p.id !== id); saveIdx(idx); setProjects(idx);
+    if (id === activeId) { if (idx.length) switchProject(idx[0].id); else newProject(); }
+  };
+
+  const reset = () => { setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines); setCart([]); setDisc('all'); setResult(false); setSelected(new Set()); setStatus('חזרת למחירון דוגמה.'); };
+
+  // #10 Detailed Excel export
+  const exportCSV = () => {
+    const data = cart.map(x => ({ 'דיסציפלינה': boqDisciplines[x.disciplineId]?.name || x.disciplineId, 'מק״ט': x.code, 'תיאור': x.desc, 'כמות': x.qty, 'יחידה': x.unit, 'חומרים': num(x.material), 'עבודה': num(x.labor), 'תכנון': num(x.engineering), 'תקורה': num(x.overhead), 'עלות ליחידה': itemTotal(x), 'סה״כ שורה': itemTotal(x) * x.qty, 'ספק': x.supplier || '', 'הערה': x.cartNote || '' }));
+    data.push({});
+    data.push({ 'דיסציפלינה': 'סיכום', 'תיאור': 'עלות ישירה', 'סה״כ שורה': totals.direct });
+    data.push({ 'תיאור': `ניהול ${percent.management}%`, 'סה״כ שורה': totals.management });
+    data.push({ 'תיאור': `בלתי צפוי ${percent.contingency}%`, 'סה״כ שורה': totals.contingency });
+    data.push({ 'תיאור': `הנחה ${percent.discount}%`, 'סה״כ שורה': -totals.discount });
+    data.push({ 'תיאור': `רווח ${percent.profit}%`, 'סה״כ שורה': totals.profit });
+    if (showVat) data.push({ 'תיאור': `מע"מ ${VAT_RATE * 100}%`, 'סה״כ שורה': totals.total * VAT_RATE });
+    data.push({ 'דיסציפלינה': 'סה״כ', 'תיאור': project.name, 'סה״כ שורה': showVat ? totals.total * (1 + VAT_RATE) : totals.total });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 40 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ'); XLSX.writeFile(wb, `galil-boq-${project.name}.xlsx`);
+  };
+  const exportPDF = async () => { setResult(true); setTimeout(async () => { if (!reportRef.current) return; const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true }); const img = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const w = 210, h = canvas.height * w / canvas.width; pdf.addImage(img, 'PNG', 0, 0, w, h); pdf.save(`galil-boq-${project.name}.pdf`); }, 100); };
+
+  // #13 RFQ Export
+  const exportRFQ = (supplierName = '') => {
+    const data = cart.map(x => ({ 'מק״ט': x.code, 'תיאור': x.desc, 'כמות': x.qty, 'יחידה': x.unit, 'דיסציפלינה': boqDisciplines[x.disciplineId]?.name || '', 'מחיר ליחידה (למילוי)': '', 'סה״כ (למילוי)': '', 'הערות': '' }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 10 }, { wch: 45 }, { wch: 8 }, { wch: 8 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'RFQ');
+    XLSX.writeFile(wb, `rfq-${project.name}${supplierName ? '-' + supplierName : ''}.xlsx`);
+    setStatus('בקשה להצעת מחיר יוצאה בהצלחה.');
+  };
+
+  // #14 Attachments
+  const handleAttach = e => {
+    const files = Array.from(e.target?.files || e.dataTransfer?.files || []);
+    files.forEach(f => {
+      if (f.size > 5000000) { alert(`${f.name} גדול מ-5MB, לא נשמר`); return; }
+      const reader = new FileReader();
+      reader.onload = ev => setAttachments(prev => [...prev, { id: uid('att'), name: f.name, type: f.type, size: f.size, dataUrl: ev.target.result, addedAt: new Date().toLocaleDateString('he-IL') }]);
+      reader.readAsDataURL(f);
+    });
+    if (e.target) e.target.value = '';
+  };
+  const removeAttach = id => setAttachments(prev => prev.filter(a => a.id !== id));
+
+  const vatAmount = showVat ? totals.total * VAT_RATE : 0;
+  const grandTotal = totals.total + vatAmount;
+  const cur = project.currency;
+
+  return <main className="layout">
+    {/* #1 Project Bar */}
+    <section className="projectBar">
+      <div className="projSelect">
+        <Layers size={16} />
+        <select value={activeId || ''} onChange={e => switchProject(e.target.value)}>
+          {projects.map(p => <option key={p.id} value={p.id}>{p.name} {p.status ? `(${p.status})` : ''}</option>)}
+        </select>
+      </div>
+      <div className="projActions">
+        <button onClick={newProject} title="פרויקט חדש"><FolderPlus size={15} /></button>
+        <button onClick={duplicateProject} title="שכפל"><Copy size={15} /></button>
+        <button onClick={() => deleteProjectById(activeId)} title="מחק" className="dangerMini"><Trash2 size={15} /></button>
+      </div>
+      <div className="projStatus">
+        <select value={project.status || 'טיוטה'} onChange={e => setProject(p => ({ ...p, status: e.target.value }))} style={{ borderColor: STATUS_COLORS[project.status] || '#94a3b8' }}>
+          {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+        </select>
+        {project.status && <span className="statusDot" style={{ background: STATUS_COLORS[project.status] }} />}
+      </div>
+      <span className="projDate"><Clock size={13} /> {new Date().toLocaleDateString('he-IL')}</span>
+    </section>
+
+    <section className="left">
+      {/* Upload */}
+      <div className="panel upload"><div><h2><UploadCloud /> העלאת מחירון Excel</h2><p>המערכת קוראת את כל הלשוניות בקובץ.</p><div className="status"><CheckCircle2 size={16} />{status}</div></div><div className="actions"><input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden onChange={upload} /><button onClick={() => inputRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button><button onClick={reset}><RotateCcw size={18} /> דוגמה</button></div></div>
+
+      {/* #2 Project details + status + currency */}
+      <div className="panel"><h2><Database /> פרטי פרויקט</h2><div className="formGrid">
+        <Field label="שם פרויקט" value={project.name} onChange={v => setProject(p => ({ ...p, name: v }))} />
+        <Field label="לקוח / מחלקה" value={project.customer} onChange={v => setProject(p => ({ ...p, customer: v }))} />
+        <Field label="עורך אומדן" value={project.estimator} onChange={v => setProject(p => ({ ...p, estimator: v }))} />
+        <label>מטבע<select value={project.currency} onChange={e => setProject(p => ({ ...p, currency: e.target.value }))}><option value="ILS">ILS ₪</option><option value="USD">USD $</option><option value="EUR">EUR €</option></select></label>
+        {project.currency !== 'ILS' && <Field label="שער המרה ל-ILS" type="number" value={project.exchangeRate} onChange={v => setProject(p => ({ ...p, exchangeRate: num(v) || 1 }))} />}
+        <label className="vatToggle"><input type="checkbox" checked={showVat} onChange={e => setShowVat(e.target.checked)} /> כולל מע"מ {VAT_RATE * 100}%</label>
+        {versions.length > 0 && <label className="verInfo"><Hash size={13} /> גרסה {versions.length} · {versions[versions.length - 1]?.savedAt ? new Date(versions[versions.length - 1].savedAt).toLocaleString('he-IL') : ''}</label>}
+      </div></div>
+
+      {/* #14 Attachments */}
+      <div className="panel attachPanel">
+        <h2 onClick={() => attachRef.current?.click()} style={{ cursor: 'pointer' }}><Paperclip /> צרופות ומסמכים ({attachments.length})</h2>
+        <input ref={attachRef} type="file" hidden multiple onChange={handleAttach} />
+        <div className="attachZone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleAttach(e); }}>
+          <p>גרור קבצים לכאן או <button onClick={() => attachRef.current?.click()}>בחר קבצים</button></p>
+          <small>שרטוטים, מפרטים, הצעות מחיר (עד 5MB לקובץ)</small>
+        </div>
+        {attachments.length > 0 && <div className="attachList">{attachments.map(a => <div key={a.id} className="attachItem">
+          {a.type?.startsWith('image/') && <img src={a.dataUrl} className="attachThumb" />}
+          <span>{a.name} <small>({(a.size / 1024).toFixed(0)}KB)</small></span>
+          <button onClick={() => removeAttach(a.id)}><X size={14} /></button>
+        </div>)}</div>}
+      </div>
+
+      {/* Catalog */}
+      <div className="panel">
+        <div className="catalogTop">
+          <div><h2><Calculator /> מחירון פריטים ({filtered.length})</h2></div>
+          <div className="catalogActions">
+            <div className="search"><Search size={18} /><input ref={searchRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש פריט / ספק / מק״ט (Ctrl+F)" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div>
+            <select className="sortSelect" value={sortMode} onChange={e => setSortMode(e.target.value)} title="מיון">
+              <option value="default">ברירת מחדל</option><option value="price-asc">מחיר: נמוך לגבוה</option><option value="price-desc">מחיר: גבוה לנמוך</option><option value="name">לפי שם</option>
+            </select>
+          </div>
+        </div>
+        <div className="chips">
+          <button className={disc === 'all' ? 'selected' : ''} onClick={() => setDisc('all')}>הכל</button>
+          {Object.entries(boqDisciplines).map(([id, d]) => <button key={id} className={disc === id ? 'selected' : ''} onClick={() => setDisc(id)}>{d.name}</button>)}
+          <button className={favOnly ? 'selected' : ''} onClick={() => setFavOnly(!favOnly)} title="מועדפים"><Star size={14} /></button>
+        </div>
+        <div className="disciplineManage">
+          <input value={newDiscipline} onChange={e => setNewDiscipline(e.target.value)} placeholder="הוסף דיסציפלינה ידנית" />
+          <button onClick={addDiscipline}><Plus size={16} /> דיסציפלינה</button>
+          {disc !== 'all' && <button className="dangerMini" onClick={() => deleteDiscipline(disc)}><Trash2 size={16} /> מחק</button>}
+          <button onClick={() => setShowAddForm(!showAddForm)}><Plus size={16} /> פריט ידני</button>
+        </div>
+
+        {/* #5 Add manual item form */}
+        {showAddForm && <div className="addItemForm"><div className="formGrid">
+          <Field label="תיאור" value={newItem.desc} onChange={v => setNewItem(p => ({ ...p, desc: v }))} />
+          <Field label="מק״ט" value={newItem.code} onChange={v => setNewItem(p => ({ ...p, code: v }))} />
+          <Field label="יחידה" value={newItem.unit} onChange={v => setNewItem(p => ({ ...p, unit: v }))} />
+          <label>דיסציפלינה<select value={newItem.disciplineId} onChange={e => setNewItem(p => ({ ...p, disciplineId: e.target.value }))}>{Object.entries(boqDisciplines).map(([id, d]) => <option key={id} value={id}>{d.name}</option>)}</select></label>
+          <Field label="חומרים ₪" type="number" value={newItem.material} onChange={v => setNewItem(p => ({ ...p, material: num(v) }))} />
+          <Field label="עבודה ₪" type="number" value={newItem.labor} onChange={v => setNewItem(p => ({ ...p, labor: num(v) }))} />
+          <Field label="תכנון ₪" type="number" value={newItem.engineering} onChange={v => setNewItem(p => ({ ...p, engineering: num(v) }))} />
+          <Field label="תקורה ₪" type="number" value={newItem.overhead} onChange={v => setNewItem(p => ({ ...p, overhead: num(v) }))} />
+        </div><button className="calc" onClick={addManualItem} style={{ marginTop: 8 }}>הוסף למחירון</button></div>}
+
+        {/* #4 Selection bar */}
+        {selected.size > 0 && <div className="selectBar"><button onClick={selectAll}>{selected.size === filtered.length ? <><CheckSquare size={15} /> בטל הכל</> : <><Square size={15} /> בחר הכל</>}</button><button onClick={addSelected}><Plus size={15} /> הוסף {selected.size} פריטים לסל</button><span>{selected.size} נבחרו</span></div>}
+
+        <div className="items">
+          {filtered.length === 0 && <div className="emptyResults"><b>לא נמצאו פריטים</b><p>{query ? `אין תוצאות עבור "${query}"` : 'אין פריטים בדיסציפלינה זו'}</p></div>}
+          {filtered.map((it, idx) => { const Icon = getIcon(boqDisciplines[it.disciplineId]?.icon); const itemId = it.id || it.code; return <div className={'item' + (selected.has(itemId) ? ' itemSelected' : '')} key={`${itemId}-${idx}`}>
+            <button className="itemCheck" onClick={() => toggleSelect(itemId)}>{selected.has(itemId) ? <CheckSquare size={18} /> : <Square size={18} />}</button>
+            <div className="itemIcon"><Icon size={22} /></div>
+            <div className="itemText"><b>{it.desc}</b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · {it.code} · {it.supplier || '-'} · {it.unit}</span><small>{it.notes}</small></div>
+            <div className="price"><b>{fmt(itemTotal(it), cur)}</b>
+              <div className="priceActions"><button onClick={() => add(it)}><Plus size={16} /> הוסף</button>
+              <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button></div>
+            </div>
+          </div>; })}
+        </div>
+      </div>
+    </section>
+
+    {/* SIDEBAR */}
+    <aside className="panel sticky">
+      <h2><Calculator /> סל חישוב ({cart.length})</h2>
+      {cart.length === 0 ? <div className="empty">לא נבחרו פריטים</div> : <>
+        {/* #7 Cart grouped by discipline */}
+        <div className="cartList">{cartGrouped.map(g => <div key={g.id} className="cartGroup">
+          <div className="cartGroupHead"><b>{g.name}</b><span>{fmt(g.subtotal, cur)}</span></div>
+          {g.items.map(x => {
+            const expanded = expandedCart.has(x.id);
+            const sups = getSupplierMatches(x.disciplineId);
+            return <div className="cart" key={x.id}>
+              <div className="cartRow">
+                <button onClick={() => { if (confirm('להסיר פריט מהסל?')) setCart(p => p.filter(z => z.id !== x.id)); }}><Trash2 size={14} /></button>
+                <b>{x.desc}</b>
+                <button className="expandBtn" onClick={() => setExpandedCart(prev => { const n = new Set(prev); if (n.has(x.id)) n.delete(x.id); else n.add(x.id); return n; })}>{expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>
+              </div>
+              <div className="cartQty">
+                <input type="number" value={x.qty} min={1} onChange={e => setCart(p => p.map(z => z.id === x.id ? { ...z, qty: num(e.target.value) || 1 } : z))} />
+                <span>{x.unit}</span><strong>{fmt(itemTotal(x) * x.qty, cur)}</strong>
+              </div>
+              {/* #6 Inline edit */}
+              {expanded && <div className="cartExpand">
+                <MiniField label="חומרים" value={x.material} onChange={v => setCart(p => p.map(z => z.id === x.id ? { ...z, material: num(v) } : z))} />
+                <MiniField label="עבודה" value={x.labor} onChange={v => setCart(p => p.map(z => z.id === x.id ? { ...z, labor: num(v) } : z))} />
+                <MiniField label="תכנון" value={x.engineering} onChange={v => setCart(p => p.map(z => z.id === x.id ? { ...z, engineering: num(v) } : z))} />
+                <MiniField label="תקורה" value={x.overhead} onChange={v => setCart(p => p.map(z => z.id === x.id ? { ...z, overhead: num(v) } : z))} />
+                <label className="cartNoteLabel">הערה<input value={x.cartNote || ''} onChange={e => setCart(p => p.map(z => z.id === x.id ? { ...z, cartNote: e.target.value } : z))} placeholder="הערת מהנדס" /></label>
+                {/* #12 Supplier hints */}
+                {sups.length > 0 && <div className="supHints"><small>ספקים מומלצים:</small>{sups.map(s => <span key={s.id}>{s.name} {s.phone ? `(${s.phone})` : ''} {'★'.repeat(s.rating || 0)}</span>)}</div>}
+              </div>}
+            </div>;
+          })}
+        </div>)}</div>
+      </>}
+
+      {/* Markup */}
+      <div className="percentGrid">
+        <Field label="ניהול %" type="number" value={percent.management} onChange={v => setPercent(p => ({ ...p, management: num(v) }))} />
+        <Field label="בלתי צפוי %" type="number" value={percent.contingency} onChange={v => setPercent(p => ({ ...p, contingency: num(v) }))} />
+        <Field label="רווח %" type="number" value={percent.profit} onChange={v => setPercent(p => ({ ...p, profit: num(v) }))} />
+        <Field label="הנחה %" type="number" value={percent.discount} onChange={v => setPercent(p => ({ ...p, discount: num(v) }))} />
+      </div>
+
+      {/* #9 Per-discipline markup toggle */}
+      <button className="discMarkupToggle" onClick={() => setShowDiscMarkup(!showDiscMarkup)}>
+        <Percent size={14} /> אחוזים לפי דיסציפלינה {showDiscMarkup ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {showDiscMarkup && <div className="discMarkupPanel">{Object.entries(boqDisciplines).map(([id, d]) => {
+        const mk = discMarkup[id] || {};
+        const set = (k, v) => setDiscMarkup(prev => ({ ...prev, [id]: { ...(prev[id] || {}), [k]: num(v) } }));
+        const hasOverride = mk.management !== undefined || mk.contingency !== undefined || mk.profit !== undefined || mk.discount !== undefined;
+        return <div key={id} className="discMkRow">
+          <b>{d.name} {hasOverride && <span className="overrideBadge">מותאם</span>}</b>
+          <div className="discMkInputs">
+            <MiniField label="ניהול" value={mk.management ?? percent.management} onChange={v => set('management', v)} />
+            <MiniField label="בלת״צ" value={mk.contingency ?? percent.contingency} onChange={v => set('contingency', v)} />
+            <MiniField label="רווח" value={mk.profit ?? percent.profit} onChange={v => set('profit', v)} />
+            <MiniField label="הנחה" value={mk.discount ?? percent.discount} onChange={v => set('discount', v)} />
+          </div>
+        </div>;
+      })}</div>}
+
+      <button className="calc" disabled={!cart.length} onClick={() => setResult(true)}>חשב פרויקט</button>
+      <div className="sideBtns">
+        <button onClick={saveManual}><Save size={16} /> שמור (Ctrl+S)</button>
+        <button onClick={exportCSV}><Download size={16} /> Excel</button>
+        <button onClick={exportPDF}><Printer size={16} /> PDF</button>
+        <button onClick={() => exportRFQ()}><Send size={16} /> RFQ</button>
+        {versions.length > 1 && <button onClick={() => setShowCompare(!showCompare)}><Eye size={16} /> השוואה</button>}
+      </div>
+
+      {/* #11 Version comparison */}
+      {showCompare && versions.length > 1 && <div className="compareBox">
+        <h3><Eye size={16} /> השוואת גרסאות</h3>
+        {versions.slice(-5).map((v, i, arr) => {
+          const prev = arr[i - 1];
+          const delta = prev ? v.totalSnapshot - prev.totalSnapshot : 0;
+          return <div key={v.id} className="compareLine">
+            <span>#{i + 1} · {new Date(v.savedAt).toLocaleString('he-IL')}</span>
+            <span>{fmt(v.totalSnapshot, cur)} {delta !== 0 && <b style={{ color: delta > 0 ? '#dc2626' : '#16a34a' }}>{delta > 0 ? '+' : ''}{fmt(delta, cur)}</b>}</span>
+            <small>{v.cartCount} פריטים</small>
+          </div>;
+        })}
+      </div>}
+
+      <div className="totalBox">
+        <span>סה״כ {showVat ? '(כולל מע"מ)' : '(לפני מע"מ)'}</span>
+        <b>{fmt(grandTotal, cur)}</b>
+        {showVat && <small>מע"מ: {fmt(vatAmount, cur)}</small>}
+        {project.currency !== 'ILS' && <small>≈ {fmt(totals.totalConverted)} ₪</small>}
+      </div>
+    </aside>
+
+    {/* REPORT */}
+    {result && <section className="report" ref={reportRef}><div className="reportBox">
+      {/* #16 Print cover */}
+      <div className="printCover"><img src={logo} /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
+      <div className="reportHead"><img src={logo} /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
+      <div className="kpis"><K title="חומרים" value={fmt(totals.material, cur)} /><K title="עבודה" value={fmt(totals.labor, cur)} /><K title="תכנון" value={fmt(totals.eng, cur)} /><K title="סה״כ" value={fmt(grandTotal, cur)} big /></div>
+      <div className="reportGrid">
+        <div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDiscArr.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total, cur)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div>
+        <div className="box"><h3>סיכום מסחרי</h3><Line l="עלות ישירה" v={totals.direct} c={cur} /><Line l={`ניהול`} v={totals.management} c={cur} /><Line l={`בלתי צפוי`} v={totals.contingency} c={cur} /><Line l={`הנחה`} v={-totals.discount} c={cur} /><Line l={`רווח`} v={totals.profit} c={cur} />{showVat && <Line l={`מע"מ ${VAT_RATE * 100}%`} v={vatAmount} c={cur} />}<div className="grand"><span>סה״כ אומדן</span><b>{fmt(grandTotal, cur)}</b>{project.currency !== 'ILS' && <small>≈ {fmt(totals.totalConverted)} ₪</small>}</div></div>
+      </div>
+      <table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>כמות</th><th>יחידה</th><th>חומרים</th><th>עבודה</th><th>תכנון</th><th>תקורה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}{x.cartNote ? ` (${x.cartNote})` : ''}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(num(x.material) * x.qty, cur)}</td><td>{fmt(num(x.labor) * x.qty, cur)}</td><td>{fmt(num(x.engineering) * x.qty, cur)}</td><td>{fmt(num(x.overhead) * x.qty, cur)}</td><td>{fmt(itemTotal(x) * x.qty, cur)}</td></tr>)}</tbody></table>
+      <div className="disclaimer">הנתונים מיועדים לאומדן ראשוני בלבד ודורשים אישור הנדסי/מסחרי לפני שימוש מחייב.</div>
+    </div></section>}
+  </main>;
 }
 
+/* ====== SUPPLIERS APP ====== */
 function SuppliersApp() {
   const [suppliers, setSuppliers] = useState(sampleSuppliers);
-  const [query, setQuery] = useState('');
-  const [disc, setDisc] = useState('הכל');
-  const [message, setMessage] = useState('טוען מאגר ספקים...');
-  const [loaded, setLoaded] = useState(false);
+  const [query, setQuery] = useState(''); const [disc, setDisc] = useState('הכל');
+  const [message, setMessage] = useState('טוען מאגר ספקים...'); const [loaded, setLoaded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
 
   useEffect(() => {
     const cached = localStorage.getItem(SUP_KEY);
-    if (cached) {
-      try {
-        const data = JSON.parse(cached);
-        if (Array.isArray(data) && data.length > 0) {
-          setSuppliers(data);
-          setMessage(`נטענו ${data.length.toLocaleString('he-IL')} ספקים מהמטמון.`);
-          setLoaded(true);
-          return;
-        }
-      } catch {}
-    }
-    fetch('/suppliers.json')
-      .then(r => r.json())
-      .then(data => {
-        if (data.suppliers && data.suppliers.length > 0) {
-          setSuppliers(data.suppliers);
-          localStorage.setItem(SUP_KEY, JSON.stringify(data.suppliers));
-          setMessage(`נטענו ${data.suppliers.length.toLocaleString('he-IL')} ספקים מהשרת.`);
-        } else {
-          setMessage('אפשר להעלות Excel בפורמט מאגר הספקים שלך.');
-        }
-      })
-      .catch(() => {
-        setMessage('אפשר להעלות Excel בפורמט מאגר הספקים שלך.');
-      })
-      .finally(() => setLoaded(true));
+    if (cached) { try { const data = JSON.parse(cached); if (Array.isArray(data) && data.length > 0) { setSuppliers(data); setMessage(`נטענו ${data.length.toLocaleString('he-IL')} ספקים מהמטמון.`); setLoaded(true); return; } } catch {} }
+    fetch('/suppliers.json').then(r => r.json()).then(data => { if (data.suppliers?.length > 0) { setSuppliers(data.suppliers); localStorage.setItem(SUP_KEY, JSON.stringify(data.suppliers)); setMessage(`נטענו ${data.suppliers.length.toLocaleString('he-IL')} ספקים מהשרת.`); } else setMessage('אפשר להעלות Excel.'); }).catch(() => setMessage('אפשר להעלות Excel.')).finally(() => setLoaded(true));
   }, []);
+  useEffect(() => { if (loaded) localStorage.setItem(SUP_KEY, JSON.stringify(suppliers)); }, [suppliers, loaded]);
 
-  useEffect(() => {
-    if (loaded) localStorage.setItem(SUP_KEY, JSON.stringify(suppliers));
-  }, [suppliers, loaded]);
+  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const parsed = parseWorkbook(wb); if (parsed.length > 0) { setSuppliers(parsed); setMessage(`נטענו ${parsed.length.toLocaleString('he-IL')} ספקים.`); } else { const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false }); const fallback = parseSuppliers(rows); setSuppliers(fallback); setMessage(`נטענו ${fallback.length.toLocaleString('he-IL')} ספקים (fallback).`); } } catch (err) { console.error(err); setMessage('שגיאה בקריאת הקובץ'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
 
-  const upload = e => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = ev => {
-      try {
-        const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false });
-        const parsed = parseWorkbook(wb);
-        if (parsed.length > 0) {
-          setSuppliers(parsed);
-          setMessage(`נטענו ${parsed.length.toLocaleString('he-IL')} ספקים מתוך "${wb.SheetNames.join(', ')}".`);
-        } else {
-          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
-          const fallback = parseSuppliers(rows);
-          setSuppliers(fallback);
-          setMessage(`נטענו ${fallback.length.toLocaleString('he-IL')} ספקים (fallback parser).`);
-        }
-      } catch (err) {
-        console.error(err);
-        setMessage('שגיאה בקריאת הקובץ');
-      }
-    };
-    r.readAsArrayBuffer(f);
-    e.target.value = '';
-  };
-
-  const [visibleCount, setVisibleCount] = useState(50);
-
-  const filtered = useMemo(() => { setVisibleCount(50); return suppliers.filter(s =>
-    (disc === 'הכל' || s.discipline === disc) &&
-    `${s.name} ${s.description || ''} ${s.field || ''} ${s.supplierNo || ''} ${s.project || ''} ${s.contact || ''} ${s.phone || ''} ${s.email || ''} ${s.fax || ''} ${s.address || ''} ${s.cityCountry || ''} ${s.notes || ''}`.toLowerCase().includes(query.toLowerCase())
-  ); }, [suppliers, disc, query]);
-
-  const disciplineCounts = useMemo(() => {
-    const counts = {};
-    for (const s of suppliers) { counts[s.discipline] = (counts[s.discipline] || 0) + 1; }
-    return counts;
-  }, [suppliers]);
+  const filtered = useMemo(() => { setVisibleCount(50); return suppliers.filter(s => (disc === 'הכל' || s.discipline === disc) && `${s.name} ${s.description || ''} ${s.field || ''} ${s.supplierNo || ''} ${s.project || ''} ${s.contact || ''} ${s.phone || ''} ${s.email || ''} ${s.fax || ''} ${s.address || ''} ${s.cityCountry || ''} ${s.notes || ''}`.toLowerCase().includes(query.toLowerCase())); }, [suppliers, disc, query]);
+  const disciplineCounts = useMemo(() => { const c = {}; for (const s of suppliers) c[s.discipline] = (c[s.discipline] || 0) + 1; return c; }, [suppliers]);
   const stats = useMemo(() => SUP_DISCIPLINES.map(d => ({ name: d, count: disciplineCounts[d] || 0 })).filter(x => x.count > 0), [disciplineCounts]);
   const update = (id, patch) => setSuppliers(p => p.map(s => s.id === id ? { ...s, ...patch } : s));
   const del = id => { if (!confirm('האם למחוק את הספק?')) return; setSuppliers(p => p.filter(s => s.id !== id)); };
-
-  const exportExcel = () => {
-    const data = suppliers.map(s => ({
-      'מספר ספק': s.supplierNo,
-      'שם ספק': s.name,
-      'תחום': s.field || s.discipline,
-      'תחום פעילות מורחב': s.description,
-      'כתובת': s.address || '',
-      'עיר ומדינה': s.cityCountry || '',
-      'מיקוד': s.zip || '',
-      'ארץ': s.country || '',
-      'מספר טלפון': s.phone,
-      'פקס': s.fax || '',
-      'מייל': s.email || '',
-      'איש קשר': s.contact,
-      'ודאות': s.certainty || '',
-      'הערות': s.notes,
-      'דירוג': s.rating
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Suppliers');
-    XLSX.writeFile(wb, 'galil-suppliers.xlsx');
-  };
-
+  const exportExcel = () => { const data = suppliers.map(s => ({ 'מספר ספק': s.supplierNo, 'שם ספק': s.name, 'תחום': s.field || s.discipline, 'תחום פעילות מורחב': s.description, 'כתובת': s.address || '', 'עיר ומדינה': s.cityCountry || '', 'מיקוד': s.zip || '', 'ארץ': s.country || '', 'מספר טלפון': s.phone, 'פקס': s.fax || '', 'מייל': s.email || '', 'איש קשר': s.contact, 'ודאות': s.certainty || '', 'הערות': s.notes, 'דירוג': s.rating })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Suppliers'); XLSX.writeFile(wb, 'galil-suppliers.xlsx'); };
   const visible = filtered.slice(0, visibleCount);
 
   if (!loaded) return <main className="supPage"><div className="loadingState"><b>טוען מאגר ספקים...</b><p>אנא המתן</p></div></main>;
-
-  return <main className="supPage"><section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש לפי שם ספק, תחום, מספר ספק, איש קשר או תיאור. כולל סיווג אוטומטי, מחיקה, דירוג ותיקון ידני.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><label className="fileBtn"><UploadCloud size={18} /> העלאת Excel<input type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /></label><button onClick={exportExcel}><Download size={18} /> ייצוא Excel</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section><section className="supplierControls panel"><div className="search big"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש ספק לפי שם / תחום / תיאור / איש קשר" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div><select value={disc} onChange={e => setDisc(e.target.value)}><option value="הכל">הכל ({suppliers.length})</option>{SUP_DISCIPLINES.map(d => <option key={d} value={d}>{d} ({disciplineCounts[d] || 0})</option>)}</select></section><section className="stats">{stats.map(s => <div className="stat" key={s.name}><b>{s.count}</b><span>{s.name}</span></div>)}</section><section className="supplierGrid">{visible.length === 0 && <div className="emptyResults"><b>לא נמצאו ספקים</b><p>{query ? `לא נמצאו תוצאות עבור "${query}"` : 'אין ספקים בקטגוריה זו'}</p></div>}{visible.map(s => <article className="supplier" key={s.id}><div className="supplierTop"><div><span>{s.discipline}</span><h3>{s.name}</h3><p>מס׳ ספק: {s.supplierNo || '-'}{s.address ? ` · ${s.address}` : ''}{s.cityCountry ? ` · ${s.cityCountry}` : ''}</p></div><button className="danger" onClick={() => del(s.id)}><Trash2 size={16} /></button></div><p className="desc">{s.description || s.field || 'אין תיאור'}</p><div className="supplierMeta"><span>איש קשר: {s.contact || '-'}</span><span>טלפון: {s.phone || '-'}</span><span>מייל: {s.email || '-'}</span><span>פקס: {s.fax || '-'}</span>{s.certainty && <span>ודאות: {s.certainty}</span>}</div><div className="editRow"><label><Pencil size={14} /> סיווג ידני</label><select value={s.discipline} onChange={e => update(s.id, { discipline: e.target.value })}>{SUP_DISCIPLINES.map(d => <option key={d}>{d}</option>)}</select></div><div className="rating">{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => update(s.id, { rating: n })} className={n <= s.rating ? 'on' : ''}><Star size={20} fill="currentColor" /></button>)}</div><textarea value={s.notes || ''} onChange={e => update(s.id, { notes: e.target.value })} placeholder="הערות על הספק" /></article>)}{filtered.length > visibleCount && <button className="calc" onClick={() => setVisibleCount(v => v + 50)}>הצג עוד {Math.min(50, filtered.length - visibleCount)} מתוך {filtered.length - visibleCount} נותרים</button>}</section></main>;
+  return <main className="supPage">
+    <section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש, סיווג, דירוג ותיקון ידני.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><label className="fileBtn"><UploadCloud size={18} /> העלאת Excel<input type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /></label><button onClick={exportExcel}><Download size={18} /> ייצוא</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section>
+    <section className="supplierControls panel"><div className="search big"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש ספק" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div><select value={disc} onChange={e => setDisc(e.target.value)}><option value="הכל">הכל ({suppliers.length})</option>{SUP_DISCIPLINES.map(d => <option key={d} value={d}>{d} ({disciplineCounts[d] || 0})</option>)}</select></section>
+    <section className="stats">{stats.map(s => <div className="stat" key={s.name}><b>{s.count}</b><span>{s.name}</span></div>)}</section>
+    <section className="supplierGrid">
+      {visible.length === 0 && <div className="emptyResults"><b>לא נמצאו ספקים</b><p>{query ? `אין תוצאות עבור "${query}"` : 'אין ספקים בקטגוריה זו'}</p></div>}
+      {visible.map(s => <article className="supplier" key={s.id}><div className="supplierTop"><div><span>{s.discipline}</span><h3>{s.name}</h3><p>מס׳ ספק: {s.supplierNo || '-'}{s.address ? ` · ${s.address}` : ''}{s.cityCountry ? ` · ${s.cityCountry}` : ''}</p></div><button className="danger" onClick={() => del(s.id)}><Trash2 size={16} /></button></div><p className="desc">{s.description || s.field || 'אין תיאור'}</p><div className="supplierMeta"><span>איש קשר: {s.contact || '-'}</span><span>טלפון: {s.phone || '-'}</span><span>מייל: {s.email || '-'}</span><span>פקס: {s.fax || '-'}</span>{s.certainty && <span>ודאות: {s.certainty}</span>}</div><div className="editRow"><label><Pencil size={14} /> סיווג</label><select value={s.discipline} onChange={e => update(s.id, { discipline: e.target.value })}>{SUP_DISCIPLINES.map(d => <option key={d}>{d}</option>)}</select></div><div className="rating">{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => update(s.id, { rating: n })} className={n <= s.rating ? 'on' : ''}><Star size={20} fill="currentColor" /></button>)}</div><textarea value={s.notes || ''} onChange={e => update(s.id, { notes: e.target.value })} placeholder="הערות" /></article>)}
+      {filtered.length > visibleCount && <button className="calc" onClick={() => setVisibleCount(v => v + 50)}>הצג עוד {Math.min(50, filtered.length - visibleCount)} מתוך {filtered.length - visibleCount}</button>}
+    </section>
+  </main>;
 }
+
+/* ====== HELPERS ====== */
 function Field({ label, value, onChange, type = 'text' }) { return <label>{label}<input type={type} value={value} onChange={e => onChange(e.target.value)} /></label>; }
+function MiniField({ label, value, onChange }) { return <label className="miniField">{label}<input type="number" value={value} onChange={e => onChange(e.target.value)} /></label>; }
 function K({ title, value, big }) { return <div className={'kpi ' + (big ? 'big' : '')}><span>{title}</span><b>{value}</b></div>; }
-function Line({ l, v }) { return <div className="line"><span>{l}</span><b>{fmt(v)}</b></div>; }
+function Line({ l, v, c = 'ILS' }) { return <div className="line"><span>{l}</span><b>{fmt(v, c)}</b></div>; }
 
 createRoot(document.getElementById('root')).render(<Shell />);
