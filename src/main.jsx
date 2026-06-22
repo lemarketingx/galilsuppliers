@@ -3,8 +3,11 @@ import { createRoot } from 'react-dom/client';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers } from 'lucide-react';
+import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
 const SUP_KEY = 'galil_suppliers_v9';
 const PROJ_IDX = 'galil_proj_idx_v2';
@@ -117,6 +120,142 @@ function parseWorkbook(wb) {
 }
 function parseSuppliers(rows) { return rows.map((row, i) => { const name = clean(getVal(row, ['שם ספק/קבלן', 'שם ספק', 'ספק', 'supplier', 'vendor', 'שם'])); const desc = clean(getVal(row, ['תחום פעילות מורחב', 'תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תיאור', 'תאור', 'description', 'תאור משאב'])); const source = clean(getVal(row, ['תחום', 'תחום עיסוק', 'דיסציפלינה', 'discipline', 'category', 'קטגוריה'])); const supplierNo = clean(getVal(row, ['מספר ספק', "מס' ספק/קבלן", 'מס ספק/קבלן', 'מספר ספק/קבלן', 'מק״ט', 'מקט', 'supplier number'])); const project = clean(getVal(row, ['פרויקט', 'project'])); const phone = clean(getVal(row, ['מספר טלפון', 'טלפון', 'נייד', 'phone', 'mobile'])); const email = clean(getVal(row, ['מייל', 'אימייל', 'דואל', 'email'])); const contact = clean(getVal(row, ['איש קשר', 'contact', 'contact person'])); const field = clean(getVal(row, ['תחום', 'תחום עיסוק', 'field'])); return { id: uid('ps'), project, supplierNo, name: name || 'ספק ללא שם', description: desc, field: field || desc || '', discipline: detectSupplierDiscipline(name, desc, source), contact, phone, email, rating: 0, notes: '', importedAt: new Date().toLocaleDateString('he-IL') }; }).filter(s => s.name !== 'ספק ללא שם' || s.description || s.supplierNo || s.project); }
 
+/* ====== PDF PARSING ====== */
+async function extractPdfText(arrayBuffer) {
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const items = content.items.filter(i => i.str?.trim());
+    if (!items.length) continue;
+    const lines = [];
+    let currentLine = []; let lastY = null;
+    items.sort((a, b) => {
+      const dy = b.transform[5] - a.transform[5];
+      if (Math.abs(dy) > 3) return dy;
+      return a.transform[4] - b.transform[4];
+    });
+    for (const item of items) {
+      const y = Math.round(item.transform[5]);
+      if (lastY !== null && Math.abs(y - lastY) > 3) { if (currentLine.length) lines.push(currentLine); currentLine = []; }
+      currentLine.push({ text: item.str.trim(), x: Math.round(item.transform[4]), w: item.width || 0 });
+      lastY = y;
+    }
+    if (currentLine.length) lines.push(currentLine);
+    pages.push(lines);
+  }
+  return pages;
+}
+
+function detectPdfColumns(pages) {
+  const allLines = pages.flat();
+  if (allLines.length < 3) return null;
+  const xPositions = {};
+  allLines.forEach(line => line.forEach(cell => {
+    const bucket = Math.round(cell.x / 15) * 15;
+    xPositions[bucket] = (xPositions[bucket] || 0) + 1;
+  }));
+  const cols = Object.entries(xPositions).filter(([, count]) => count > allLines.length * 0.15).map(([x]) => Number(x)).sort((a, b) => a - b);
+  if (cols.length < 2) return null;
+  return cols;
+}
+
+function pdfLinesToCells(line, cols) {
+  if (!cols) return line.map(c => c.text);
+  const cells = cols.map(() => '');
+  for (const item of line) {
+    let best = 0, bestDist = Infinity;
+    cols.forEach((cx, i) => { const d = Math.abs(item.x - cx); if (d < bestDist) { bestDist = d; best = i; } });
+    cells[best] = (cells[best] ? cells[best] + ' ' : '') + item.text;
+  }
+  return cells;
+}
+
+const NUM_RE = /^[\d,\.]+$/;
+const PRICE_RE = /^[₪$€]?\s*[\d,\.]+\s*[₪$€]?$/;
+function classifyPdfCells(cells) {
+  let descIdx = -1, qtyIdx = -1, priceIdx = -1, unitIdx = -1, codeIdx = -1;
+  const unitWords = ['יח', 'מטר', 'מ"א', 'מ״א', 'מ"ר', 'מ״ר', 'מק', 'טון', 'ק"ג', 'קג', 'ליטר', 'סט', 'קומפ', 'unit', 'pcs', 'm', 'kg', 'ton', 'set', 'lot'];
+  cells.forEach((c, i) => {
+    const v = clean(c).toLowerCase();
+    const n = norm(c);
+    if (['תיאור', 'תאור', 'description', 'פריט', 'סעיף', 'תאורהסעיף', 'תיאורהסעיף'].some(w => n.includes(norm(w)))) descIdx = i;
+    else if (['כמות', 'qty', 'quantity', 'כמ'].some(w => n.includes(norm(w)))) qtyIdx = i;
+    else if (['מחיר', 'price', 'עלות', 'סהכ', 'סכום', 'total', 'amount'].some(w => n.includes(norm(w)))) priceIdx = i;
+    else if (['יחידה', 'יחמידה', 'unit', 'יח'].some(w => n.includes(norm(w)))) unitIdx = i;
+    else if (['מקט', 'מקטט', 'code', 'קוד', 'סעיף', 'פריט', 'item'].some(w => n === norm(w))) codeIdx = i;
+  });
+  if (descIdx === -1) {
+    let longest = -1, longestIdx = -1;
+    cells.forEach((c, i) => { if (c.length > longest && i !== qtyIdx && i !== priceIdx && i !== unitIdx && i !== codeIdx) { longest = c.length; longestIdx = i; } });
+    if (longestIdx >= 0) descIdx = longestIdx;
+  }
+  return { descIdx, qtyIdx, priceIdx, unitIdx, codeIdx };
+}
+
+function parsePdfRows(pages) {
+  const cols = detectPdfColumns(pages);
+  const allLines = pages.flat();
+  if (allLines.length < 2) return { items: [], rawText: allLines.map(l => l.map(c => c.text).join(' ')).join('\n') };
+
+  const gridLines = allLines.map(line => pdfLinesToCells(line, cols));
+  if (gridLines.length < 2) return { items: [], rawText: gridLines.map(r => r.join(' | ')).join('\n') };
+
+  let headerIdx = -1;
+  const mapping = { descIdx: -1, qtyIdx: -1, priceIdx: -1, unitIdx: -1, codeIdx: -1 };
+  for (let i = 0; i < Math.min(gridLines.length, 8); i++) {
+    const m = classifyPdfCells(gridLines[i]);
+    if (m.descIdx >= 0 && (m.priceIdx >= 0 || m.qtyIdx >= 0)) { Object.assign(mapping, m); headerIdx = i; break; }
+  }
+  if (headerIdx === -1) {
+    for (let i = 0; i < Math.min(gridLines.length, 5); i++) {
+      const hasText = gridLines[i].some(c => c.length > 10 && !NUM_RE.test(c.trim()));
+      const hasNum = gridLines[i].some(c => PRICE_RE.test(c.trim()));
+      if (hasText && hasNum) {
+        let longest = -1, longestIdx = -1, numIdx = -1;
+        gridLines[i].forEach((c, j) => { if (c.length > longest && !NUM_RE.test(c.trim())) { longest = c.length; longestIdx = j; } if (PRICE_RE.test(c.trim()) && numIdx === -1) numIdx = j; });
+        mapping.descIdx = longestIdx; mapping.priceIdx = numIdx; headerIdx = i - 1;
+        break;
+      }
+    }
+  }
+
+  const dataStart = headerIdx + 1;
+  const items = [];
+  for (let i = dataStart; i < gridLines.length; i++) {
+    const row = gridLines[i];
+    const desc = mapping.descIdx >= 0 ? clean(row[mapping.descIdx] || '') : row.filter((c, j) => j !== mapping.qtyIdx && j !== mapping.priceIdx).map(c => c.trim()).filter(Boolean).join(' ');
+    if (!desc || desc.length < 2) continue;
+    const priceRaw = mapping.priceIdx >= 0 ? row[mapping.priceIdx] : '';
+    const qtyRaw = mapping.qtyIdx >= 0 ? row[mapping.qtyIdx] : '';
+    const unitRaw = mapping.unitIdx >= 0 ? row[mapping.unitIdx] : '';
+    const codeRaw = mapping.codeIdx >= 0 ? row[mapping.codeIdx] : '';
+    const price = num(priceRaw);
+    const qty = num(qtyRaw) || 1;
+    if (/^(סה[״"]?כ|total|subtotal|sum|סיכום)$/i.test(norm(desc))) continue;
+    if (!price && !desc.match(/[֐-׿a-zA-Z]{3,}/)) continue;
+
+    items.push({
+      id: uid('pdf'),
+      disciplineId: inferBoqDiscipline(desc),
+      code: clean(codeRaw) || `PDF-${items.length + 1}`,
+      desc,
+      unit: clean(unitRaw) || 'יח׳',
+      material: price,
+      labor: 0, engineering: 0, overhead: 0,
+      supplier: '', validity: '',
+      notes: 'יובא מ-PDF',
+      defaultQty: qty,
+      currency: 'ILS',
+      totalIncludingVat: 0
+    });
+  }
+
+  const rawText = gridLines.map(r => r.join(' | ')).join('\n');
+  return { items, rawText };
+}
+
 /* ====== PROJECT MANAGEMENT ====== */
 const projKey = id => `galil_proj_${id}`;
 const loadIdx = () => { try { return JSON.parse(localStorage.getItem(PROJ_IDX)) || []; } catch { return []; } };
@@ -180,8 +319,10 @@ function BoqApp() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newItem, setNewItem] = useState({ desc: '', code: '', unit: 'יח׳', material: 0, labor: 0, engineering: 0, overhead: 0, disciplineId: 'piping', supplier: '' });
 
-  // #14 Attachments
+  // #14 Attachments + PDF parsing
   const [attachments, setAttachments] = useState([]);
+  const [pdfPreview, setPdfPreview] = useState(null); // { items: [], rawText: '', fileName: '' }
+  const [pdfParsing, setPdfParsing] = useState(false);
 
   // #11 Version history
   const [versions, setVersions] = useState([]);
@@ -397,11 +538,34 @@ function BoqApp() {
     setStatus('בקשה להצעת מחיר יוצאה בהצלחה.');
   };
 
-  // #14 Attachments
+  // #14 Attachments + PDF auto-parse
   const handleAttach = e => {
     const files = Array.from(e.target?.files || e.dataTransfer?.files || []);
     files.forEach(f => {
-      if (f.size > 5000000) { alert(`${f.name} גדול מ-5MB, לא נשמר`); return; }
+      if (f.size > 10000000) { alert(`${f.name} גדול מ-10MB, לא נשמר`); return; }
+
+      // PDF auto-parse
+      if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+        setPdfParsing(true);
+        const abReader = new FileReader();
+        abReader.onload = async ev => {
+          try {
+            const pages = await extractPdfText(ev.target.result);
+            const { items, rawText } = parsePdfRows(pages);
+            setPdfPreview({ items, rawText, fileName: f.name });
+            if (items.length > 0) setStatus(`נמצאו ${items.length} שורות מחירון ב-${f.name}. בדוק ואשר ייבוא.`);
+            else setStatus(`לא נמצאו טבלאות ב-${f.name}. טקסט גולמי מוצג למטה.`);
+          } catch (err) { console.error('PDF parse error:', err); setStatus(`שגיאה בקריאת ${f.name}`); }
+          setPdfParsing(false);
+        };
+        abReader.readAsArrayBuffer(f);
+        // Also store as attachment
+        const reader2 = new FileReader();
+        reader2.onload = ev2 => setAttachments(prev => [...prev, { id: uid('att'), name: f.name, type: f.type, size: f.size, dataUrl: f.size < 3000000 ? ev2.target.result : null, addedAt: new Date().toLocaleDateString('he-IL') }]);
+        reader2.readAsDataURL(f);
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = ev => setAttachments(prev => [...prev, { id: uid('att'), name: f.name, type: f.type, size: f.size, dataUrl: ev.target.result, addedAt: new Date().toLocaleDateString('he-IL') }]);
       reader.readAsDataURL(f);
@@ -409,6 +573,25 @@ function BoqApp() {
     if (e.target) e.target.value = '';
   };
   const removeAttach = id => setAttachments(prev => prev.filter(a => a.id !== id));
+  const importPdfItems = () => {
+    if (!pdfPreview?.items?.length) return;
+    const newMap = { ...boqDisciplines };
+    pdfPreview.items.forEach(it => { if (!newMap[it.disciplineId]) newMap[it.disciplineId] = { name: it.disciplineId, icon: 'FileText' }; });
+    setBoqDisciplines(newMap);
+    setItems(prev => [...prev, ...pdfPreview.items]);
+    setStatus(`יובאו ${pdfPreview.items.length} פריטים מ-${pdfPreview.fileName} למחירון.`);
+    setPdfPreview(null);
+  };
+  const importPdfReplace = () => {
+    if (!pdfPreview?.items?.length) return;
+    const newMap = makeDisciplineMapFromSheetNames([], defaultBoqDisciplines);
+    pdfPreview.items.forEach(it => { if (!newMap[it.disciplineId]) newMap[it.disciplineId] = { name: it.disciplineId, icon: 'FileText' }; });
+    setBoqDisciplines(newMap);
+    setItems(pdfPreview.items);
+    setDisc('all'); setResult(false); setSelected(new Set());
+    setStatus(`${pdfPreview.items.length} פריטים מ-${pdfPreview.fileName} החליפו את המחירון.`);
+    setPdfPreview(null);
+  };
 
   const vatAmount = showVat ? totals.total * VAT_RATE : 0;
   const grandTotal = totals.total + vatAmount;
@@ -452,16 +635,45 @@ function BoqApp() {
         {versions.length > 0 && <label className="verInfo"><Hash size={13} /> גרסה {versions.length} · {versions[versions.length - 1]?.savedAt ? new Date(versions[versions.length - 1].savedAt).toLocaleString('he-IL') : ''}</label>}
       </div></div>
 
-      {/* #14 Attachments */}
+      {/* #14 Attachments + PDF auto-import */}
       <div className="panel attachPanel">
         <h2 onClick={() => attachRef.current?.click()} style={{ cursor: 'pointer' }}><Paperclip /> צרופות ומסמכים ({attachments.length})</h2>
-        <input ref={attachRef} type="file" hidden multiple onChange={handleAttach} />
+        <input ref={attachRef} type="file" hidden multiple accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.dwg,.doc,.docx" onChange={handleAttach} />
         <div className="attachZone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleAttach(e); }}>
-          <p>גרור קבצים לכאן או <button onClick={() => attachRef.current?.click()}>בחר קבצים</button></p>
-          <small>שרטוטים, מפרטים, הצעות מחיר (עד 5MB לקובץ)</small>
+          {pdfParsing ? <div className="pdfLoading"><Loader size={24} className="spin" /><p>מנתח את ה-PDF... מחלץ טקסט וטבלאות</p></div> :
+          <><p>גרור קבצים לכאן או <button onClick={() => attachRef.current?.click()}>בחר קבצים</button></p>
+          <small><FileSearch size={14} /> קובצי PDF ינותחו אוטומטית - המערכת תחלץ טבלאות מחירים ותייבא למחירון</small></>}
         </div>
+
+        {/* PDF preview panel */}
+        {pdfPreview && <div className="pdfPreview">
+          <div className="pdfPreviewHead">
+            <h3><FileSearch size={18} /> תוצאות ניתוח: {pdfPreview.fileName}</h3>
+            {pdfPreview.items.length > 0 ? <span className="pdfCount">{pdfPreview.items.length} שורות זוהו</span> : <span className="pdfNoItems">לא זוהו טבלאות</span>}
+          </div>
+          {pdfPreview.items.length > 0 && <>
+            <div className="pdfTable">
+              <table><thead><tr><th>מק״ט</th><th>תיאור</th><th>כמות</th><th>יחידה</th><th>מחיר</th><th>דיסציפלינה</th></tr></thead>
+              <tbody>{pdfPreview.items.slice(0, 30).map(it => <tr key={it.id}>
+                <td>{it.code}</td><td>{it.desc}</td><td>{it.defaultQty}</td><td>{it.unit}</td><td>{fmt(it.material)}</td><td>{boqDisciplines[it.disciplineId]?.name || it.disciplineId}</td>
+              </tr>)}</tbody></table>
+              {pdfPreview.items.length > 30 && <small>... ועוד {pdfPreview.items.length - 30} שורות</small>}
+            </div>
+            <div className="pdfActions">
+              <button onClick={importPdfItems}><Plus size={16} /> הוסף למחירון הקיים</button>
+              <button onClick={importPdfReplace}><RotateCcw size={16} /> החלף את המחירון</button>
+              <button onClick={() => setPdfPreview(null)}><X size={16} /> בטל</button>
+            </div>
+          </>}
+          {pdfPreview.items.length === 0 && pdfPreview.rawText && <div className="pdfRawText">
+            <p>טקסט גולמי שחולץ מהמסמך:</p>
+            <pre>{pdfPreview.rawText.slice(0, 3000)}{pdfPreview.rawText.length > 3000 ? '\n...(קוצר)' : ''}</pre>
+          </div>}
+        </div>}
+
         {attachments.length > 0 && <div className="attachList">{attachments.map(a => <div key={a.id} className="attachItem">
-          {a.type?.startsWith('image/') && <img src={a.dataUrl} className="attachThumb" />}
+          {a.type?.startsWith('image/') && a.dataUrl && <img src={a.dataUrl} className="attachThumb" />}
+          {a.type === 'application/pdf' && <FileText size={20} style={{ color: '#dc2626', flexShrink: 0 }} />}
           <span>{a.name} <small>({(a.size / 1024).toFixed(0)}KB)</small></span>
           <button onClick={() => removeAttach(a.id)}><X size={14} /></button>
         </div>)}</div>}
