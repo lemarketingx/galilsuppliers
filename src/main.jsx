@@ -270,15 +270,16 @@ const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentati
 function Shell() {
   const [tab, setTab] = useState('boq');
   return <div className="app" dir="rtl">
-    <header className="top"><div className="brand"><img src={logo} /><div><span>GALIL GROUP</span><h1>מערכת הנדסה ורכש</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
+    <header className="top"><div className="brand"><img src={logo} alt="Galil Group" /><div><span>GALIL GROUP</span><h1>מערכת הנדסה ורכש</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
     <nav><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
     {tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
+    <footer className="appFooter">© {new Date().getFullYear()} קבוצת גליל · מערכת הנדסה ורכש · גרסה פנימית</footer>
   </div>;
 }
 
 /* ====== BOQ APP ====== */
 function BoqApp() {
-  const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null);
+  const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null); const saveManualRef = useRef(null);
   const [items, setItems] = useState(sampleItems);
   const [boqDisciplines, setBoqDisciplines] = useState(defaultBoqDisciplines);
   const [newDiscipline, setNewDiscipline] = useState('');
@@ -390,7 +391,7 @@ function BoqApp() {
   // #15 Keyboard shortcuts
   useEffect(() => {
     const h = e => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveManual(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveManualRef.current(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); searchRef.current?.focus(); }
       if (e.key === 'Escape') { setQuery(''); setShowAddForm(false); setShowCompare(false); }
     };
@@ -441,9 +442,9 @@ function BoqApp() {
       management += d * mk.management / 100;
       contingency += d * mk.contingency / 100;
       const bfd = d + d * mk.management / 100 + d * mk.contingency / 100;
-      const disc = bfd * mk.discount / 100;
-      discountTotal += disc;
-      profitTotal += (bfd - disc) * mk.profit / 100;
+      const discAmt = bfd * mk.discount / 100;
+      discountTotal += discAmt;
+      profitTotal += (bfd - discAmt) * mk.profit / 100;
       if (!byDisc[x.disciplineId]) byDisc[x.disciplineId] = 0;
       byDisc[x.disciplineId] += t;
     });
@@ -476,6 +477,7 @@ function BoqApp() {
     setVersions(prev => [...prev.slice(-9), snap]);
     setStatus('הפרויקט נשמר.');
   };
+  saveManualRef.current = saveManual;
 
   // #1 Project management
   const newProject = () => {
@@ -831,19 +833,19 @@ function BoqApp() {
       <div className="reportBar">
         <button onClick={() => setResult(false)}><Pencil size={16} /> חזור לעריכה</button>
         <button onClick={() => { setResult(false); setCart([]); setStatus('הסל נוקה. אפשר להתחיל מחדש.'); }}><Trash2 size={16} /> נקה סל והתחל מחדש</button>
-        <button onClick={() => { setResult(false); setCart([]); setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines); setPercent({ management: 7, contingency: 12, profit: 10, discount: 0 }); setDiscMarkup({}); setProject(p => ({ ...p, name: 'פרויקט חדש', customer: '', status: 'טיוטה' })); setAttachments([]); setVersions([]); setStatus('המערכת אופסה. אפשר להתחיל הכל מאפס.'); }}><RotateCcw size={16} /> אפס הכל מאפס</button>
+        <button onClick={() => { if (!confirm('האם לאפס את הכל? כל הנתונים ייאבדו.')) return; setResult(false); setCart([]); setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines); setPercent({ management: 7, contingency: 12, profit: 10, discount: 0 }); setDiscMarkup({}); setProject(p => ({ ...p, name: 'פרויקט חדש', customer: '', status: 'טיוטה' })); setAttachments([]); setVersions([]); setStatus('המערכת אופסה. אפשר להתחיל הכל מאפס.'); }}><RotateCcw size={16} /> אפס הכל מאפס</button>
         <span className="reportBarInfo">{cart.length} פריטים · {fmt(grandTotal, cur)}</span>
       </div>
       <div className="reportBox">
       {/* #16 Print cover */}
-      <div className="printCover"><img src={logo} /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
-      <div className="reportHead"><img src={logo} /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
+      <div className="printCover"><img src={logo} alt="Galil Group" /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
+      <div className="reportHead"><img src={logo} alt="Galil Group" /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
       <div className="kpis"><K title="חומרים" value={fmt(totals.material, cur)} /><K title="עבודה" value={fmt(totals.labor, cur)} /><K title="תכנון" value={fmt(totals.eng, cur)} /><K title="סה״כ" value={fmt(grandTotal, cur)} big /></div>
       <div className="reportGrid">
         <div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDiscArr.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total, cur)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div>
         <div className="box"><h3>סיכום מסחרי</h3><Line l="עלות ישירה" v={totals.direct} c={cur} /><Line l={`ניהול`} v={totals.management} c={cur} /><Line l={`בלתי צפוי`} v={totals.contingency} c={cur} /><Line l={`הנחה`} v={-totals.discount} c={cur} /><Line l={`רווח`} v={totals.profit} c={cur} />{showVat && <Line l={`מע"מ ${VAT_RATE * 100}%`} v={vatAmount} c={cur} />}<div className="grand"><span>סה״כ אומדן</span><b>{fmt(grandTotal, cur)}</b>{project.currency !== 'ILS' && <small>≈ {fmt(totals.totalConverted)} ₪</small>}</div></div>
       </div>
-      <table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>כמות</th><th>יחידה</th><th>חומרים</th><th>עבודה</th><th>תכנון</th><th>תקורה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}{x.cartNote ? ` (${x.cartNote})` : ''}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(num(x.material) * x.qty, cur)}</td><td>{fmt(num(x.labor) * x.qty, cur)}</td><td>{fmt(num(x.engineering) * x.qty, cur)}</td><td>{fmt(num(x.overhead) * x.qty, cur)}</td><td>{fmt(itemTotal(x) * x.qty, cur)}</td></tr>)}</tbody></table>
+      <table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>ספק</th><th>כמות</th><th>יחידה</th><th>חומרים</th><th>עבודה</th><th>תכנון</th><th>תקורה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}{x.cartNote ? ` (${x.cartNote})` : ''}</td><td>{x.supplier || '-'}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(num(x.material) * x.qty, cur)}</td><td>{fmt(num(x.labor) * x.qty, cur)}</td><td>{fmt(num(x.engineering) * x.qty, cur)}</td><td>{fmt(num(x.overhead) * x.qty, cur)}</td><td>{fmt(itemTotal(x) * x.qty, cur)}</td></tr>)}</tbody></table>
       <div className="disclaimer">הנתונים מיועדים לאומדן ראשוני בלבד ודורשים אישור הנדסי/מסחרי לפני שימוש מחייב.</div>
       <div className="reportBottomActions">
         <button onClick={() => setResult(false)}><Pencil size={16} /> חזור לעריכה והוסף פריטים</button>

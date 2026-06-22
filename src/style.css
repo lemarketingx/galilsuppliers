@@ -90,7 +90,7 @@
 
 .percentGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
 .calc{width:100%;background:linear-gradient(135deg,#4f46e5,#2563eb);color:white;font-size:18px;padding:15px}.calc:disabled{opacity:.5;cursor:not-allowed}
-.sideBtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.sideBtns button{background:#eef2ff;color:#3730a3;font-size:12px;padding:9px 8px}
+.sideBtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.sideBtns button{background:#eef2ff;color:#3730a3;font-size:12px;padding:9px 12px;flex:1;min-width:0}
 
 /* Version compare */
 .compareBox{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:14px;margin-top:10px}
@@ -176,7 +176,7 @@ table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{b
 
 /* Print */
 @media print{
-  .top,.projectBar,.upload,.attachPanel,.sideBtns,.percentGrid,.calc,.discMarkupToggle,.discMarkupPanel,.compareBox,.actions,.catalogTop,.chips,.disciplineManage,.selectBar,.items,.cartList,.cartGroup,.totalBox,.sticky,.supplierControls,.stats,.supplierGrid,.supHero,.reportBar,.reportBottomActions,.cartHead{display:none!important}
+  .top,.projectBar,.upload,.attachPanel,.sideBtns,.percentGrid,.calc,.discMarkupToggle,.discMarkupPanel,.compareBox,.actions,.catalogTop,.chips,.disciplineManage,.selectBar,.items,.cartList,.cartGroup,.totalBox,.sticky,.supplierControls,.stats,.supplierGrid,.supHero,.reportBar,.reportBottomActions,.cartHead,.appFooter{display:none!important}
   .layout{display:block!important;max-width:none;padding:0}
   .left{display:none!important}
   .report{padding:0;grid-column:auto}.reportBox{box-shadow:none;border:0;border-radius:0;padding:12px}
@@ -189,6 +189,9 @@ table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{b
   thead{display:table-header-group}
   .reportHead button,.reportActions{display:none}
 }
+
+/* Footer */
+.appFooter{text-align:center;padding:24px;color:#94a3b8;font-size:13px;font-weight:700;border-top:1px solid #e2e8f0;margin-top:32px}
 
 /* Responsive */
 @media(max-width:1050px){
@@ -208,7 +211,8 @@ table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{b
   .discMkInputs{grid-template-columns:1fr 1fr}
 }
 @media(max-width:650px){
-  .formGrid,.kpis,.percentGrid,.sideBtns,.discMkInputs{grid-template-columns:1fr}
+  .formGrid,.kpis,.percentGrid,.discMkInputs{grid-template-columns:1fr}
+  .sideBtns{flex-direction:column}.sideBtns button{flex:none}
   .brand{align-items:flex-start}.brand h1{font-size:24px}.brand img{width:62px}
   .item{flex-direction:column;align-items:stretch}.price{text-align:right}
   .top,.supPage,.layout{padding:14px}
