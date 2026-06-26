@@ -15,7 +15,8 @@ const ACTIVE_PROJ = 'galil_active_proj_v2';
 const FAV_KEY = 'galil_fav_v1';
 const LEGACY_BOQ = 'galil_boq_v5_real_sheets_disciplines';
 const VAT_RATE = 0.17;
-const logo = '/galil-logo.webp';
+const COMPANY_NAME = 'שם החברה';
+const SYSTEM_TITLE = 'מערכת הנדסה ורכש';
 
 const fmt = (v, cur = 'ILS') => new Intl.NumberFormat('he-IL', { style: 'currency', currency: cur === 'USD' ? 'USD' : cur === 'EUR' ? 'EUR' : 'ILS', maximumFractionDigits: 0 }).format(Number(v) || 0);
 const num = v => { const n = Number(String(v ?? '').replace(/,/g, '').replace(/[₪$€]/g, '').trim()); return Number.isFinite(n) ? n : 0; };
@@ -86,7 +87,7 @@ const itemTotal = i => num(i.material) + num(i.labor) + num(i.engineering) + num
 const SUP_DISCIPLINES = ['צנרת', 'חשמל', 'מכשור ובקרה', 'הנדסה אזרחית', 'מכונות וציוד', 'מתכת וקונסטרוקציה', 'בידוד וצבע', 'HVAC ומיזוג', 'בטיחות וכיבוי אש', 'לוגיסטיקה ושילוח', 'כימיקלים וחומרים', 'שירותי תכנון וייעוץ', 'הדרכות וכנסים', 'IT ותוכנה', 'כללי / אחר'];
 const sampleSuppliers = [
   { id: 'demo-1', project: '00802', supplierNo: '51638', name: 'ספק צנרת לדוגמה בע״מ', description: 'אספקת צינורות, ברזים, אוגנים ואביזרי צנרת', discipline: 'צנרת', rating: 4, contact: '', phone: '', email: '', notes: '' },
-  { id: 'demo-2', project: '00803', supplierNo: '7008', name: 'חשמל תעשייתי גליל', description: 'לוחות חשמל, כבלים, תעלות ובדיקות חשמל', discipline: 'חשמל', rating: 5, contact: '', phone: '', email: '', notes: '' },
+  { id: 'demo-2', project: '00803', supplierNo: '7008', name: 'חשמל תעשייתי לדוגמה', description: 'לוחות חשמל, כבלים, תעלות ובדיקות חשמל', discipline: 'חשמל', rating: 5, contact: '', phone: '', email: '', notes: '' },
   { id: 'demo-3', project: '00804', supplierNo: '51421', name: 'קבלן בטון ופיתוח', description: 'עבודות בטון, חפירה וקונסטרוקציה', discipline: 'הנדסה אזרחית', rating: 3, contact: '', phone: '', email: '', notes: '' }
 ];
 function detectSupplierDiscipline(name = '', desc = '', source = '') {
@@ -270,10 +271,10 @@ const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentati
 function Shell() {
   const [tab, setTab] = useState('boq');
   return <div className="app" dir="rtl">
-    <header className="top"><div className="brand"><img src={logo} alt="Galil Group" /><div><span>GALIL GROUP</span><h1>מערכת הנדסה ורכש</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
+    <header className="top"><div className="brand"><div className="logoPlaceholder"><Building2 size={32} /></div><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
     <nav><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
     {tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
-    <footer className="appFooter">© {new Date().getFullYear()} קבוצת גליל · מערכת הנדסה ורכש · גרסה פנימית</footer>
+    <footer className="appFooter">© {new Date().getFullYear()} {COMPANY_NAME} · {SYSTEM_TITLE}</footer>
   </div>;
 }
 
@@ -287,7 +288,7 @@ function BoqApp() {
   const [query, setQuery] = useState('');
   const [disc, setDisc] = useState('all');
   const [status, setStatus] = useState('נטען מחירון דוגמה.');
-  const [project, setProject] = useState({ name: 'אומדן פרויקט חדש', customer: 'לקוח / מחלקה', estimator: 'קבוצת גליל', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+  const [project, setProject] = useState({ name: 'אומדן פרויקט חדש', customer: 'לקוח / מחלקה', estimator: '', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
   const [percent, setPercent] = useState({ management: 7, contingency: 12, profit: 10, discount: 0 });
   const [result, setResult] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -344,7 +345,7 @@ function BoqApp() {
     setItems(d.items || sampleItems);
     setBoqDisciplines(d.boqDisciplines || defaultBoqDisciplines);
     setCart(d.cart || []);
-    setProject(d.project || { name: 'פרויקט חדש', customer: '', estimator: 'קבוצת גליל', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+    setProject(d.project || { name: 'פרויקט חדש', customer: '', estimator: '', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
     setPercent(d.percent || { management: 7, contingency: 12, profit: 10, discount: 0 });
     setDiscMarkup(d.discMarkup || {});
     setAttachments(d.attachments || []);
@@ -487,7 +488,7 @@ function BoqApp() {
     const idx = [...loadIdx(), meta]; saveIdx(idx); setProjects(idx);
     setActiveId(id); localStorage.setItem(ACTIVE_PROJ, id);
     applyState(null); setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines);
-    setProject({ name: 'פרויקט חדש', customer: '', estimator: 'קבוצת גליל', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+    setProject({ name: 'פרויקט חדש', customer: '', estimator: '', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
     setStatus('נוצר פרויקט חדש.');
   };
   const switchProject = id => {
@@ -526,9 +527,9 @@ function BoqApp() {
     data.push({ 'דיסציפלינה': 'סה״כ', 'תיאור': project.name, 'סה״כ שורה': showVat ? totals.total * (1 + VAT_RATE) : totals.total });
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 40 }, { wch: 8 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 20 }];
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ'); XLSX.writeFile(wb, `galil-boq-${project.name}.xlsx`);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'BOQ'); XLSX.writeFile(wb, `boq-${project.name}.xlsx`);
   };
-  const exportPDF = async () => { setResult(true); setTimeout(async () => { if (!reportRef.current) return; const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true }); const img = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const w = 210, h = canvas.height * w / canvas.width; pdf.addImage(img, 'PNG', 0, 0, w, h); pdf.save(`galil-boq-${project.name}.pdf`); }, 100); };
+  const exportPDF = async () => { setResult(true); setTimeout(async () => { if (!reportRef.current) return; const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true }); const img = canvas.toDataURL('image/png'); const pdf = new jsPDF('p', 'mm', 'a4'); const w = 210, h = canvas.height * w / canvas.width; pdf.addImage(img, 'PNG', 0, 0, w, h); pdf.save(`boq-${project.name}.pdf`); }, 100); };
 
   // #13 RFQ Export
   const exportRFQ = (supplierName = '') => {
@@ -838,8 +839,8 @@ function BoqApp() {
       </div>
       <div className="reportBox">
       {/* #16 Print cover */}
-      <div className="printCover"><img src={logo} alt="Galil Group" /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
-      <div className="reportHead"><img src={logo} alt="Galil Group" /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
+      <div className="printCover"><div className="logoPlaceholder printLogo"><Building2 size={48} /></div><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
+      <div className="reportHead"><div className="logoPlaceholder"><Building2 size={28} /></div><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
       <div className="kpis"><K title="חומרים" value={fmt(totals.material, cur)} /><K title="עבודה" value={fmt(totals.labor, cur)} /><K title="תכנון" value={fmt(totals.eng, cur)} /><K title="סה״כ" value={fmt(grandTotal, cur)} big /></div>
       <div className="reportGrid">
         <div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDiscArr.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total, cur)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div>
@@ -878,7 +879,7 @@ function SuppliersApp() {
   const stats = useMemo(() => SUP_DISCIPLINES.map(d => ({ name: d, count: disciplineCounts[d] || 0 })).filter(x => x.count > 0), [disciplineCounts]);
   const update = (id, patch) => setSuppliers(p => p.map(s => s.id === id ? { ...s, ...patch } : s));
   const del = id => { if (!confirm('האם למחוק את הספק?')) return; setSuppliers(p => p.filter(s => s.id !== id)); };
-  const exportExcel = () => { const data = suppliers.map(s => ({ 'מספר ספק': s.supplierNo, 'שם ספק': s.name, 'תחום': s.field || s.discipline, 'תחום פעילות מורחב': s.description, 'כתובת': s.address || '', 'עיר ומדינה': s.cityCountry || '', 'מיקוד': s.zip || '', 'ארץ': s.country || '', 'מספר טלפון': s.phone, 'פקס': s.fax || '', 'מייל': s.email || '', 'איש קשר': s.contact, 'ודאות': s.certainty || '', 'הערות': s.notes, 'דירוג': s.rating })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Suppliers'); XLSX.writeFile(wb, 'galil-suppliers.xlsx'); };
+  const exportExcel = () => { const data = suppliers.map(s => ({ 'מספר ספק': s.supplierNo, 'שם ספק': s.name, 'תחום': s.field || s.discipline, 'תחום פעילות מורחב': s.description, 'כתובת': s.address || '', 'עיר ומדינה': s.cityCountry || '', 'מיקוד': s.zip || '', 'ארץ': s.country || '', 'מספר טלפון': s.phone, 'פקס': s.fax || '', 'מייל': s.email || '', 'איש קשר': s.contact, 'ודאות': s.certainty || '', 'הערות': s.notes, 'דירוג': s.rating })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Suppliers'); XLSX.writeFile(wb, 'suppliers-export.xlsx'); };
   const visible = filtered.slice(0, visibleCount);
 
   if (!loaded) return <main className="supPage"><div className="loadingState"><b>טוען מאגר ספקים...</b><p>אנא המתן</p></div></main>;

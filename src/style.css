@@ -1,4 +1,6 @@
-*{box-sizing:border-box}body{margin:0;background:#f6f8fc;color:#172033;font-family:Arial,Helvetica,sans-serif}.app{min-height:100vh}.top{background:linear-gradient(135deg,#ffffff,#edf3ff);border-bottom:1px solid #dbe4f0;padding:22px 34px;display:flex;justify-content:space-between;align-items:center;gap:22px;position:sticky;top:0;z-index:10;box-shadow:0 8px 30px rgba(30,41,59,.06)}.brand{display:flex;align-items:center;gap:18px}.brand img{width:78px;height:auto}.brand span{font-weight:900;color:#4f46e5;letter-spacing:.08em}.brand h1{margin:3px 0;font-size:30px}.brand p{margin:0;color:#64748b;font-weight:700}nav{display:flex;gap:10px;background:#eaf0fb;border:1px solid #dbe4f0;padding:7px;border-radius:20px}button,.fileBtn{border:0;border-radius:15px;padding:11px 15px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}nav button{background:transparent;color:#334155}nav button.active{background:#fff;color:#3730a3;box-shadow:0 8px 22px rgba(30,41,59,.12)}
+*{box-sizing:border-box}body{margin:0;background:#f6f8fc;color:#172033;font-family:Arial,Helvetica,sans-serif}.app{min-height:100vh}.top{background:linear-gradient(135deg,#ffffff,#edf3ff);border-bottom:1px solid #dbe4f0;padding:22px 34px;display:flex;justify-content:space-between;align-items:center;gap:22px;position:sticky;top:0;z-index:10;box-shadow:0 8px 30px rgba(30,41,59,.06)}.brand{display:flex;align-items:center;gap:18px}
+.logoPlaceholder{width:72px;height:72px;background:#eef2ff;border:2px dashed #c7d2fe;border-radius:18px;display:flex;align-items:center;justify-content:center;color:#6366f1;flex-shrink:0}
+.printLogo{width:100px;height:100px;margin:0 auto 16px;border-radius:22px}.brand span{font-weight:900;color:#4f46e5;letter-spacing:.08em}.brand h1{margin:3px 0;font-size:30px}.brand p{margin:0;color:#64748b;font-weight:700}nav{display:flex;gap:10px;background:#eaf0fb;border:1px solid #dbe4f0;padding:7px;border-radius:20px}button,.fileBtn{border:0;border-radius:15px;padding:11px 15px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}nav button{background:transparent;color:#334155}nav button.active{background:#fff;color:#3730a3;box-shadow:0 8px 22px rgba(30,41,59,.12)}
 
 /* Project bar */
 .projectBar{grid-column:1/-1;display:flex;align-items:center;gap:14px;background:white;border:1px solid #dbe4f0;border-radius:20px;padding:12px 18px;box-shadow:0 4px 16px rgba(30,41,59,.04);flex-wrap:wrap}
@@ -155,7 +157,7 @@
 .clearCartBtn{background:#fee2e2!important;color:#b91c1c!important;padding:6px 12px!important;font-size:12px!important}
 .report{grid-column:1/-1;position:relative;z-index:0;padding-bottom:30px}
 .reportBox{background:white;border:1px solid #dbe4f0;border-radius:28px;padding:24px;box-shadow:0 18px 50px rgba(30,41,59,.08)}
-.reportHead{display:flex;align-items:center;gap:16px;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:16px;margin-bottom:18px}.reportHead img{width:78px}.reportHead h2{margin:0}.reportHead p{margin:4px 0 0;color:#64748b;font-size:13px}
+.reportHead{display:flex;align-items:center;gap:16px;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:16px;margin-bottom:18px}.reportHead .logoPlaceholder{width:56px;height:56px}.reportHead h2{margin:0}.reportHead p{margin:4px 0 0;color:#64748b;font-size:13px}
 .reportActions{display:flex;gap:8px;flex-shrink:0}
 .reportActions button{background:#172554;color:white;padding:10px 16px}
 .printCover{display:none}
@@ -182,7 +184,7 @@ table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{b
   .report{padding:0;grid-column:auto}.reportBox{box-shadow:none;border:0;border-radius:0;padding:12px}
   .app{background:white}
   .printCover{display:block!important;text-align:center;padding:60px 20px;page-break-after:always}
-  .printCover img{width:120px;margin-bottom:20px}
+  .printCover .logoPlaceholder{margin:0 auto 20px}
   .printCover h1{font-size:32px;margin:0 0 10px}
   .printCover p{color:#64748b;font-size:16px;margin:4px 0}
   table{page-break-inside:auto}tr{page-break-inside:avoid}
