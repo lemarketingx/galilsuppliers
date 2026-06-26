@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader } from 'lucide-react';
+import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader, Phone, Mail, LayoutDashboard, TrendingUp, Activity, Package, UserPlus } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
 
@@ -269,13 +269,97 @@ const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentati
 
 /* ====== SHELL ====== */
 function Shell() {
-  const [tab, setTab] = useState('boq');
+  const [tab, setTab] = useState('dashboard');
   return <div className="app" dir="rtl">
     <header className="top"><div className="brand"><div className="logoPlaceholder"><Building2 size={32} /></div><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
-    <nav><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
-    {tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
+    <nav><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}><LayoutDashboard size={18} /> דשבורד</button><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
+    {tab === 'dashboard' ? <Dashboard onNavigate={setTab} /> : tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
     <footer className="appFooter">© {new Date().getFullYear()} {COMPANY_NAME} · {SYSTEM_TITLE}</footer>
   </div>;
+}
+
+/* ====== DASHBOARD ====== */
+function Dashboard({ onNavigate }) {
+  const [projects, setProjects] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  useEffect(() => {
+    const idx = loadIdx();
+    setProjects(idx);
+    try { const s = JSON.parse(localStorage.getItem(SUP_KEY)) || []; setSuppliers(s); } catch {}
+  }, []);
+
+  const projDetails = useMemo(() => projects.map(p => {
+    const d = loadProj(p.id);
+    const cartLen = d?.cart?.length || 0;
+    const itemsLen = d?.items?.length || 0;
+    let total = 0;
+    if (d?.cart) d.cart.forEach(x => { total += (num(x.material) + num(x.labor) + num(x.engineering) + num(x.overhead)) * (x.qty || 1); });
+    return { ...p, cartLen, itemsLen, total, currency: d?.project?.currency || 'ILS', customer: d?.project?.customer || '', estimator: d?.project?.estimator || '' };
+  }), [projects]);
+
+  const totalProjects = projects.length;
+  const totalSuppliers = suppliers.length;
+  const totalEstimate = projDetails.reduce((s, p) => s + p.total, 0);
+  const activeProjects = projDetails.filter(p => p.status === 'בבדיקה' || p.status === 'מאושר').length;
+  const topDisciplines = useMemo(() => {
+    const c = {};
+    suppliers.forEach(s => { c[s.discipline] = (c[s.discipline] || 0) + 1; });
+    return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [suppliers]);
+  const recentProjects = projDetails.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 5);
+
+  return <main className="dashPage">
+    <section className="dashWelcome">
+      <h2><Activity size={28} /> ברוכים הבאים ל{SYSTEM_TITLE}</h2>
+      <p>סקירה כללית של פרויקטים, ספקים ונתונים עדכניים</p>
+    </section>
+
+    <section className="dashStats">
+      <div className="dashStat" onClick={() => onNavigate('boq')}><Package size={28} /><b>{totalProjects}</b><span>פרויקטים</span></div>
+      <div className="dashStat" onClick={() => onNavigate('suppliers')}><Users size={28} /><b>{totalSuppliers}</b><span>ספקים במאגר</span></div>
+      <div className="dashStat"><TrendingUp size={28} /><b>{fmt(totalEstimate)}</b><span>סה״כ אומדנים</span></div>
+      <div className="dashStat"><Activity size={28} /><b>{activeProjects}</b><span>פרויקטים פעילים</span></div>
+    </section>
+
+    <section className="dashGrid">
+      <div className="dashCard">
+        <h3><ClipboardList size={20} /> פרויקטים אחרונים</h3>
+        {recentProjects.length === 0 ? <p className="dashEmpty">אין פרויקטים עדיין. <button onClick={() => onNavigate('boq')}>צור פרויקט ראשון</button></p> :
+        <div className="dashTable">
+          <table><thead><tr><th>שם</th><th>לקוח</th><th>סטטוס</th><th>פריטים בסל</th><th>סה״כ</th><th>עדכון</th></tr></thead>
+          <tbody>{recentProjects.map(p => <tr key={p.id}>
+            <td><b>{p.name}</b></td>
+            <td>{p.customer || '-'}</td>
+            <td><span className="dashStatus" style={{ background: STATUS_COLORS[p.status] || '#94a3b8' }}>{p.status || 'טיוטה'}</span></td>
+            <td>{p.cartLen}</td>
+            <td>{fmt(p.total, p.currency)}</td>
+            <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('he-IL') : '-'}</td>
+          </tr>)}</tbody></table>
+        </div>}
+        <button className="dashLink" onClick={() => onNavigate('boq')}><ClipboardList size={16} /> עבור למחירון ← </button>
+      </div>
+
+      <div className="dashCard">
+        <h3><Users size={20} /> ספקים לפי תחום</h3>
+        {topDisciplines.length === 0 ? <p className="dashEmpty">אין ספקים. <button onClick={() => onNavigate('suppliers')}>העלה מאגר ספקים</button></p> :
+        <div className="dashBars">{topDisciplines.map(([name, count]) => {
+          const pct = totalSuppliers ? Math.round(count / totalSuppliers * 100) : 0;
+          return <div className="bar" key={name}><span><b>{name}</b><b>{count} ({pct}%)</b></span><i><em style={{ width: pct + '%' }} /></i></div>;
+        })}</div>}
+        <button className="dashLink" onClick={() => onNavigate('suppliers')}><Users size={16} /> עבור למאגר ספקים ← </button>
+      </div>
+    </section>
+
+    <section className="dashQuickActions">
+      <h3>פעולות מהירות</h3>
+      <div className="dashActions">
+        <button onClick={() => onNavigate('boq')}><Calculator size={20} /> בנה אומדן חדש</button>
+        <button onClick={() => onNavigate('suppliers')}><UserPlus size={20} /> הוסף ספק</button>
+        <button onClick={() => onNavigate('boq')}><UploadCloud size={20} /> העלה Excel</button>
+        <button onClick={() => onNavigate('boq')}><FileSearch size={20} /> העלה PDF</button>
+      </div>
+    </section>
+  </main>;
 }
 
 /* ====== BOQ APP ====== */
@@ -728,7 +812,9 @@ function BoqApp() {
             <div className="itemText"><b>{it.desc}</b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · {it.code} · {it.supplier || '-'} · {it.unit}</span><small>{it.notes}</small></div>
             <div className="price"><b>{fmt(itemTotal(it), cur)}</b>
               <div className="priceActions"><button onClick={() => add(it)}><Plus size={16} /> הוסף</button>
-              <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button></div>
+              <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button>
+              <button className="itemActionBtn" title="שכפל" onClick={() => setItems(prev => [...prev, { ...it, id: uid('dup'), code: it.code + '-copy' }])}><Copy size={14} /></button>
+              <button className="itemActionBtn dangerMini" title="מחק" onClick={() => { if (confirm('למחוק פריט מהמחירון?')) setItems(prev => prev.filter(x => x.id !== it.id)); }}><Trash2 size={14} /></button></div>
             </div>
           </div>; })}
         </div>
@@ -864,6 +950,8 @@ function SuppliersApp() {
   const [query, setQuery] = useState(''); const [disc, setDisc] = useState('הכל');
   const [message, setMessage] = useState('טוען מאגר ספקים...'); const [loaded, setLoaded] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [newSup, setNewSup] = useState({ name: '', supplierNo: '', description: '', discipline: 'כללי / אחר', contact: '', phone: '', email: '', address: '', notes: '' });
 
   useEffect(() => {
     const cached = localStorage.getItem(SUP_KEY);
@@ -879,17 +967,63 @@ function SuppliersApp() {
   const stats = useMemo(() => SUP_DISCIPLINES.map(d => ({ name: d, count: disciplineCounts[d] || 0 })).filter(x => x.count > 0), [disciplineCounts]);
   const update = (id, patch) => setSuppliers(p => p.map(s => s.id === id ? { ...s, ...patch } : s));
   const del = id => { if (!confirm('האם למחוק את הספק?')) return; setSuppliers(p => p.filter(s => s.id !== id)); };
+  const addSupplier = () => {
+    if (!newSup.name.trim()) return;
+    setSuppliers(p => [...p, { ...newSup, id: uid('sup'), field: newSup.description, rating: 0, importedAt: new Date().toLocaleDateString('he-IL') }]);
+    setNewSup({ name: '', supplierNo: '', description: '', discipline: 'כללי / אחר', contact: '', phone: '', email: '', address: '', notes: '' });
+    setShowAddSupplier(false);
+    setMessage('ספק חדש נוסף בהצלחה.');
+  };
+  const duplicateSupplier = s => {
+    setSuppliers(p => [...p, { ...s, id: uid('sup'), name: s.name + ' (העתק)' }]);
+    setMessage('ספק שוכפל.');
+  };
   const exportExcel = () => { const data = suppliers.map(s => ({ 'מספר ספק': s.supplierNo, 'שם ספק': s.name, 'תחום': s.field || s.discipline, 'תחום פעילות מורחב': s.description, 'כתובת': s.address || '', 'עיר ומדינה': s.cityCountry || '', 'מיקוד': s.zip || '', 'ארץ': s.country || '', 'מספר טלפון': s.phone, 'פקס': s.fax || '', 'מייל': s.email || '', 'איש קשר': s.contact, 'ודאות': s.certainty || '', 'הערות': s.notes, 'דירוג': s.rating })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Suppliers'); XLSX.writeFile(wb, 'suppliers-export.xlsx'); };
   const visible = filtered.slice(0, visibleCount);
 
   if (!loaded) return <main className="supPage"><div className="loadingState"><b>טוען מאגר ספקים...</b><p>אנא המתן</p></div></main>;
   return <main className="supPage">
-    <section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש, סיווג, דירוג ותיקון ידני.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><label className="fileBtn"><UploadCloud size={18} /> העלאת Excel<input type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /></label><button onClick={exportExcel}><Download size={18} /> ייצוא</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section>
-    <section className="supplierControls panel"><div className="search big"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש ספק" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div><select value={disc} onChange={e => setDisc(e.target.value)}><option value="הכל">הכל ({suppliers.length})</option>{SUP_DISCIPLINES.map(d => <option key={d} value={d}>{d} ({disciplineCounts[d] || 0})</option>)}</select></section>
+    <section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש, סיווג, דירוג ותיקון ידני. {suppliers.length} ספקים במאגר.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><button onClick={() => setShowAddSupplier(!showAddSupplier)}><UserPlus size={18} /> הוסף ספק</button><label className="fileBtn"><UploadCloud size={18} /> העלאת Excel<input type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /></label><button onClick={exportExcel}><Download size={18} /> ייצוא</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section>
+
+    {/* Add supplier form */}
+    {showAddSupplier && <section className="panel addSupForm">
+      <h2><UserPlus size={22} /> הוספת ספק חדש</h2>
+      <div className="formGrid">
+        <Field label="שם ספק *" value={newSup.name} onChange={v => setNewSup(p => ({ ...p, name: v }))} />
+        <Field label="מספר ספק" value={newSup.supplierNo} onChange={v => setNewSup(p => ({ ...p, supplierNo: v }))} />
+        <Field label="תיאור / תחום פעילות" value={newSup.description} onChange={v => setNewSup(p => ({ ...p, description: v }))} />
+        <label>דיסציפלינה<select value={newSup.discipline} onChange={e => setNewSup(p => ({ ...p, discipline: e.target.value }))}>{SUP_DISCIPLINES.map(d => <option key={d}>{d}</option>)}</select></label>
+        <Field label="איש קשר" value={newSup.contact} onChange={v => setNewSup(p => ({ ...p, contact: v }))} />
+        <Field label="טלפון" value={newSup.phone} onChange={v => setNewSup(p => ({ ...p, phone: v }))} />
+        <Field label="אימייל" value={newSup.email} onChange={v => setNewSup(p => ({ ...p, email: v }))} />
+        <Field label="כתובת" value={newSup.address} onChange={v => setNewSup(p => ({ ...p, address: v }))} />
+      </div>
+      <div className="addSupActions">
+        <button className="calc" onClick={addSupplier} style={{ flex: 1 }}><Plus size={16} /> הוסף ספק</button>
+        <button onClick={() => setShowAddSupplier(false)} style={{ background: '#e2e8f0', color: '#0f172a' }}><X size={16} /> ביטול</button>
+      </div>
+    </section>}
+
+    <section className="supplierControls panel"><div className="search big"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש ספק לפי שם, תחום, טלפון, מייל..." />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div><select value={disc} onChange={e => setDisc(e.target.value)}><option value="הכל">הכל ({suppliers.length})</option>{SUP_DISCIPLINES.map(d => <option key={d} value={d}>{d} ({disciplineCounts[d] || 0})</option>)}</select></section>
     <section className="stats">{stats.map(s => <div className="stat" key={s.name}><b>{s.count}</b><span>{s.name}</span></div>)}</section>
     <section className="supplierGrid">
       {visible.length === 0 && <div className="emptyResults"><b>לא נמצאו ספקים</b><p>{query ? `אין תוצאות עבור "${query}"` : 'אין ספקים בקטגוריה זו'}</p></div>}
-      {visible.map(s => <article className="supplier" key={s.id}><div className="supplierTop"><div><span>{s.discipline}</span><h3>{s.name}</h3><p>מס׳ ספק: {s.supplierNo || '-'}{s.address ? ` · ${s.address}` : ''}{s.cityCountry ? ` · ${s.cityCountry}` : ''}</p></div><button className="danger" onClick={() => del(s.id)}><Trash2 size={16} /></button></div><p className="desc">{s.description || s.field || 'אין תיאור'}</p><div className="supplierMeta"><span>איש קשר: {s.contact || '-'}</span><span>טלפון: {s.phone || '-'}</span><span>מייל: {s.email || '-'}</span><span>פקס: {s.fax || '-'}</span>{s.certainty && <span>ודאות: {s.certainty}</span>}</div><div className="editRow"><label><Pencil size={14} /> סיווג</label><select value={s.discipline} onChange={e => update(s.id, { discipline: e.target.value })}>{SUP_DISCIPLINES.map(d => <option key={d}>{d}</option>)}</select></div><div className="rating">{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => update(s.id, { rating: n })} className={n <= s.rating ? 'on' : ''}><Star size={20} fill="currentColor" /></button>)}</div><textarea value={s.notes || ''} onChange={e => update(s.id, { notes: e.target.value })} placeholder="הערות" /></article>)}
+      {visible.map(s => <article className="supplier" key={s.id}>
+        <div className="supplierTop"><div><span>{s.discipline}</span><h3>{s.name}</h3><p>מס׳ ספק: {s.supplierNo || '-'}{s.address ? ` · ${s.address}` : ''}{s.cityCountry ? ` · ${s.cityCountry}` : ''}</p></div>
+        <div className="supTopActions"><button title="שכפל" onClick={() => duplicateSupplier(s)}><Copy size={14} /></button><button className="danger" title="מחק" onClick={() => del(s.id)}><Trash2 size={14} /></button></div></div>
+        <p className="desc">{s.description || s.field || 'אין תיאור'}</p>
+        <div className="supplierMeta">
+          <span><Pencil size={13} /> איש קשר: <input className="inlineEdit" value={s.contact || ''} onChange={e => update(s.id, { contact: e.target.value })} placeholder="שם איש קשר" /></span>
+          <span><Phone size={13} /> טלפון: {s.phone ? <a href={`tel:${s.phone}`} className="contactLink">{s.phone}</a> : <input className="inlineEdit" value="" onChange={e => update(s.id, { phone: e.target.value })} placeholder="הוסף טלפון" />}</span>
+          <span><Mail size={13} /> מייל: {s.email ? <a href={`mailto:${s.email}`} className="contactLink">{s.email}</a> : <input className="inlineEdit" value="" onChange={e => update(s.id, { email: e.target.value })} placeholder="הוסף מייל" />}</span>
+          {s.fax && <span>פקס: {s.fax}</span>}
+          {s.certainty && <span>ודאות: {s.certainty}</span>}
+          {s.importedAt && <span><Clock size={13} /> נוסף: {s.importedAt}</span>}
+        </div>
+        <div className="editRow"><label><Pencil size={14} /> סיווג</label><select value={s.discipline} onChange={e => update(s.id, { discipline: e.target.value })}>{SUP_DISCIPLINES.map(d => <option key={d}>{d}</option>)}</select></div>
+        <div className="rating">{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => update(s.id, { rating: n })} className={n <= s.rating ? 'on' : ''}><Star size={20} fill="currentColor" /></button>)}</div>
+        <textarea value={s.notes || ''} onChange={e => update(s.id, { notes: e.target.value })} placeholder="הערות" />
+      </article>)}
       {filtered.length > visibleCount && <button className="calc" onClick={() => setVisibleCount(v => v + 50)}>הצג עוד {Math.min(50, filtered.length - visibleCount)} מתוך {filtered.length - visibleCount}</button>}
     </section>
   </main>;
