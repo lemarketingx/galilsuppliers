@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { LogIn, LogOut, Lock, UserCog, X, Trash2, Plus, ShieldCheck, History } from 'lucide-react';
+import { LogOut, UserCog, X, Trash2, Plus, ShieldCheck, History, KeyRound } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'galil_auth_token_v1';
+const LOGO_URL = '/brand/galil-logo.png';
 
 async function apiFetch(path, opts = {}) {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -55,72 +56,88 @@ export function AuthProvider({ children }) {
     setUser(d.user);
   };
   const logout = () => { localStorage.removeItem(TOKEN_KEY); setUser(null); };
+  const forgotPassword = username => apiFetch('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username }) });
 
   const canUpload = !!user && (user.role === 'uploader' || user.role === 'admin');
   const isAdmin = !!user && user.role === 'admin';
 
-  return <AuthContext.Provider value={{ user, ready, login, logout, canUpload, isAdmin, roleLabel: user ? ROLE_LABELS[user.role] || user.role : '', apiFetch, uploadFile: uploadFileToServer }}>
+  return <AuthContext.Provider value={{ user, ready, login, logout, forgotPassword, canUpload, isAdmin, roleLabel: user ? ROLE_LABELS[user.role] || user.role : '', apiFetch, uploadFile: uploadFileToServer }}>
     {children}
   </AuthContext.Provider>;
 }
 
-/* Guard for any upload trigger (button click / drag&drop). Returns true if the
-   action may proceed; otherwise opens the login modal (if signed out) or an
-   explanatory alert (if signed in without upload permission), and returns false. */
-export function useUploadGuard() {
-  const { user, canUpload } = useAuth();
-  const [showLogin, setShowLogin] = useState(false);
-  const guard = () => {
-    if (canUpload) return true;
-    if (!user) { setShowLogin(true); return false; }
-    alert('אין לך הרשאת העלאת קבצים. פנה/י למנהל המערכת כדי לקבל הרשאה.');
-    return false;
-  };
-  return { guard, showLogin, setShowLogin };
+/* Full-screen gate: nothing in the app renders until the user is signed in. */
+export function AuthGate({ children }) {
+  const { user, ready } = useAuth();
+  if (!ready) return <div className="authSplash"><img src={LOGO_URL} alt="" /></div>;
+  if (!user) return <LoginScreen />;
+  return children;
 }
 
-export function LoginModal({ onClose }) {
-  const { login } = useAuth();
+function LoginScreen() {
+  const { login, forgotPassword } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState('login'); // 'login' | 'forgot'
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
   const submit = async e => {
     e.preventDefault();
     if (!username || !password) return;
     setBusy(true); setError('');
-    try { await login(username, password); onClose(); }
+    try { await login(username, password); }
     catch (err) { setError(err.message || 'שגיאה בהתחברות.'); }
     finally { setBusy(false); }
   };
 
-  return <div className="authOverlay" onClick={onClose}>
-    <form className="authModal" onClick={e => e.stopPropagation()} onSubmit={submit}>
-      <div className="authModalHead"><h2><Lock size={20} /> התחברות</h2><button type="button" onClick={onClose}><X size={18} /></button></div>
-      <p className="authHint">רק משתמשים עם הרשאת "מורשה העלאה" או "מנהל" יכולים להעלות קבצים לאתר.</p>
-      <label>שם משתמש<input value={username} onChange={e => setUsername(e.target.value)} autoFocus /></label>
-      <label>סיסמה<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-      {error && <div className="authError">{error}</div>}
-      <button className="calc" type="submit" disabled={busy}>{busy ? 'מתחבר...' : 'התחברות'}</button>
-    </form>
+  const submitForgot = async e => {
+    e.preventDefault();
+    if (!forgotUsername) return;
+    setBusy(true); setError('');
+    try { await forgotPassword(forgotUsername); setForgotSent(true); }
+    catch (err) { setError(err.message || 'שגיאה בשליחת הבקשה.'); }
+    finally { setBusy(false); }
+  };
+
+  return <div className="loginPage">
+    <div className="loginCard">
+      <img src={LOGO_URL} alt="קבוצת גליל" className="loginLogo" />
+      <h1>{SYSTEM_TITLE_FALLBACK}</h1>
+
+      {mode === 'login' ? <form onSubmit={submit}>
+        <label>שם משתמש<input value={username} onChange={e => setUsername(e.target.value)} autoFocus /></label>
+        <label>סיסמה<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
+        {error && <div className="authError">{error}</div>}
+        <button className="calc" type="submit" disabled={busy}>{busy ? 'מתחבר...' : 'התחברות'}</button>
+        <button type="button" className="loginForgotLink" onClick={() => { setMode('forgot'); setError(''); }}>שכחתי סיסמה</button>
+      </form> : <form onSubmit={submitForgot}>
+        {forgotSent ? <p className="authHint">אם שם המשתמש קיים במערכת, בקשתך נשלחה למנהל המערכת והוא יצור איתך קשר עם סיסמה חדשה.</p> : <>
+          <p className="authHint">הזן/י שם משתמש - הבקשה תישלח למנהל המערכת לאיפוס הסיסמה.</p>
+          <label>שם משתמש<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} autoFocus /></label>
+          {error && <div className="authError">{error}</div>}
+          <button className="calc" type="submit" disabled={busy}>{busy ? 'שולח...' : 'שליחת בקשה'}</button>
+        </>}
+        <button type="button" className="loginForgotLink" onClick={() => { setMode('login'); setError(''); setForgotSent(false); }}>חזרה להתחברות</button>
+      </form>}
+    </div>
   </div>;
 }
 
+const SYSTEM_TITLE_FALLBACK = 'מערכת הנדסה ורכש';
+
 export function AuthBar() {
   const { user, logout, roleLabel, isAdmin } = useAuth();
-  const [showLogin, setShowLogin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showLog, setShowLog] = useState(false);
 
   return <div className="authBar">
-    {user ? <>
-      <span className="authUser"><ShieldCheck size={15} /> {user.username} <em>({roleLabel})</em></span>
-      {isAdmin && <button onClick={() => setShowAdmin(true)}><UserCog size={15} /> ניהול משתמשים</button>}
-      {isAdmin && <button onClick={() => setShowLog(true)}><History size={15} /> יומן העלאות</button>}
-      <button onClick={logout}><LogOut size={15} /> התנתקות</button>
-    </> : <button onClick={() => setShowLogin(true)}><LogIn size={15} /> התחברות</button>}
-    {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+    <span className="authUser"><ShieldCheck size={15} /> {user.username} <em>({roleLabel})</em></span>
+    {isAdmin && <button onClick={() => setShowAdmin(true)}><UserCog size={15} /> ניהול משתמשים</button>}
+    {isAdmin && <button onClick={() => setShowLog(true)}><History size={15} /> יומן העלאות</button>}
+    <button onClick={logout}><LogOut size={15} /> התנתקות</button>
     {showAdmin && <UsersAdmin onClose={() => setShowAdmin(false)} />}
     {showLog && <UploadsLog onClose={() => setShowLog(false)} />}
   </div>;
@@ -160,11 +177,15 @@ function UploadsLog({ onClose }) {
 function UsersAdmin({ onClose }) {
   const { apiFetch, user: me } = useAuth();
   const [users, setUsers] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ username: '', password: '', role: 'uploader' });
 
-  const load = () => apiFetch('/api/users').then(d => setUsers(d.users)).catch(e => setError(e.message)).finally(() => setLoading(false));
+  const load = () => Promise.all([
+    apiFetch('/api/users').then(d => setUsers(d.users)),
+    apiFetch('/api/users/reset-requests').then(d => setRequests(d.requests)),
+  ]).catch(e => setError(e.message)).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const createUser = async e => {
@@ -190,10 +211,40 @@ function UsersAdmin({ onClose }) {
     catch (err) { setError(err.message); }
   };
 
+  const resolveReset = async req => {
+    const target = users.find(u => u.username === req.username);
+    if (!target) { setError(`המשתמש ${req.username} כבר לא קיים.`); return; }
+    const newPassword = prompt(`סיסמה חדשה עבור ${req.username} (6 תווים לפחות):`);
+    if (!newPassword) return;
+    setError('');
+    try {
+      await apiFetch(`/api/users/${target.id}`, { method: 'PATCH', body: JSON.stringify({ password: newPassword }) });
+      await apiFetch(`/api/users/reset-requests/${req.id}`, { method: 'DELETE' });
+      alert(`הסיסמה עבור ${req.username} עודכנה. מסור/י לו את הסיסמה החדשה.`);
+      load();
+    } catch (err) { setError(err.message); }
+  };
+
+  const dismissReset = async id => {
+    setError('');
+    try { await apiFetch(`/api/users/reset-requests/${id}`, { method: 'DELETE' }); load(); }
+    catch (err) { setError(err.message); }
+  };
+
   return <div className="authOverlay" onClick={onClose}>
     <div className="authModal authAdminModal" onClick={e => e.stopPropagation()}>
       <div className="authModalHead"><h2><UserCog size={20} /> ניהול משתמשים והרשאות</h2><button onClick={onClose}><X size={18} /></button></div>
       {error && <div className="authError">{error}</div>}
+
+      {requests.length > 0 && <div className="authResetRequests">
+        <h3><KeyRound size={16} /> בקשות איפוס סיסמה ({requests.length})</h3>
+        {requests.map(r => <div className="authUserRow" key={r.id}>
+          <b>{r.username}</b>
+          <span>{new Date(r.requestedAt).toLocaleString('he-IL')}</span>
+          <button className="calc" style={{ padding: '6px 12px' }} onClick={() => resolveReset(r)}>אפס סיסמה</button>
+          <button className="dangerMini" onClick={() => dismissReset(r.id)} title="התעלם"><X size={14} /></button>
+        </div>)}
+      </div>}
 
       <form className="authNewUser" onSubmit={createUser}>
         <input placeholder="שם משתמש" value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))} />

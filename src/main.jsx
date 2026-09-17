@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader, Phone, Mail, LayoutDashboard, TrendingUp, Activity, Package, UserPlus } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
-import { AuthProvider, AuthBar, useUploadGuard, useAuth, LoginModal } from './auth.jsx';
+import { AuthProvider, AuthGate, AuthBar, useAuth } from './auth.jsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -413,8 +413,7 @@ function Dashboard({ onNavigate }) {
 /* ====== BOQ APP ====== */
 function BoqApp() {
   const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null); const saveManualRef = useRef(null);
-  const { guard: guardUpload, showLogin: showUploadLogin, setShowLogin: setShowUploadLogin } = useUploadGuard();
-  const { uploadFile } = useAuth();
+  const { uploadFile, canUpload } = useAuth();
   const [items, setItems] = useState(sampleItems);
   const [boqDisciplines, setBoqDisciplines] = useState(defaultBoqDisciplines);
   const [newDiscipline, setNewDiscipline] = useState('');
@@ -756,7 +755,6 @@ function BoqApp() {
   const visibleProjects = showArchived ? projects : projects.filter(p => p.id === activeId || !isArchivedDate(p.updatedAt));
 
   return <main className={'layout' + (result ? ' reportOpen' : '')}>
-    {showUploadLogin && <LoginModal onClose={() => setShowUploadLogin(false)} />}
     {/* #1 Project Bar */}
     <section className="projectBar">
       <div className="projSelect">
@@ -782,7 +780,7 @@ function BoqApp() {
 
     <section className="left">
       {/* Upload */}
-      <div className="panel upload"><div><h2><UploadCloud /> העלאת מחירון Excel</h2><p>המערכת קוראת את כל הלשוניות בקובץ.</p><div className="status"><CheckCircle2 size={16} />{status}</div></div><div className="actions"><input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden onChange={upload} /><button onClick={() => guardUpload() && inputRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button><button onClick={reset}><RotateCcw size={18} /> דוגמה</button></div></div>
+      <div className="panel upload"><div><h2><UploadCloud /> העלאת מחירון Excel</h2><p>המערכת קוראת את כל הלשוניות בקובץ.</p><div className="status"><CheckCircle2 size={16} />{status}</div></div><div className="actions">{canUpload && <><input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden onChange={upload} /><button onClick={() => inputRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button></>}<button onClick={reset}><RotateCcw size={18} /> דוגמה</button></div></div>
 
       {/* #2 Project details + status + currency */}
       <div className="panel"><h2><Database /> פרטי פרויקט</h2><div className="formGrid">
@@ -797,13 +795,15 @@ function BoqApp() {
 
       {/* #14 Attachments + PDF auto-import */}
       <div className="panel attachPanel">
-        <h2 onClick={() => guardUpload() && attachRef.current?.click()} style={{ cursor: 'pointer' }}><Paperclip /> צרופות ומסמכים ({attachments.length})</h2>
+        <h2 style={canUpload ? { cursor: 'pointer' } : undefined} onClick={canUpload ? () => attachRef.current?.click() : undefined}><Paperclip /> צרופות ומסמכים ({attachments.length})</h2>
+        {canUpload && <>
         <input ref={attachRef} type="file" hidden multiple accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.dwg,.doc,.docx" onChange={handleAttach} />
-        <div className="attachZone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); if (guardUpload()) handleAttach(e); }}>
+        <div className="attachZone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleAttach(e); }}>
           {pdfParsing ? <div className="pdfLoading"><Loader size={24} className="spin" /><p>מנתח את ה-PDF... מחלץ טקסט וטבלאות</p></div> :
-          <><p>גרור קבצים לכאן או <button onClick={() => guardUpload() && attachRef.current?.click()}>בחר קבצים</button></p>
+          <><p>גרור קבצים לכאן או <button onClick={() => attachRef.current?.click()}>בחר קבצים</button></p>
           <small><FileSearch size={14} /> קובצי PDF ינותחו אוטומטית - המערכת תחלץ טבלאות מחירים ותייבא למחירון</small></>}
         </div>
+        </>}
 
         {/* PDF preview panel */}
         {pdfPreview && <div className="pdfPreview">
@@ -1024,8 +1024,7 @@ function BoqApp() {
 /* ====== SUPPLIERS APP ====== */
 function SuppliersApp() {
   const uploadRef = useRef(null);
-  const { guard: guardUpload, showLogin: showUploadLogin, setShowLogin: setShowUploadLogin } = useUploadGuard();
-  const { uploadFile } = useAuth();
+  const { uploadFile, canUpload } = useAuth();
   const [suppliers, setSuppliers] = useState(sampleSuppliers);
   const [query, setQuery] = useState(''); const [disc, setDisc] = useState('הכל');
   const [message, setMessage] = useState('טוען מאגר ספקים...'); const [loaded, setLoaded] = useState(false);
@@ -1072,8 +1071,7 @@ function SuppliersApp() {
 
   if (!loaded) return <main className="supPage"><div className="loadingState"><b>טוען מאגר ספקים...</b><p>אנא המתן</p></div></main>;
   return <main className="supPage">
-    {showUploadLogin && <LoginModal onClose={() => setShowUploadLogin(false)} />}
-    <section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש, סיווג, דירוג ותיקון ידני. {suppliers.length} ספקים במאגר.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><button onClick={() => setShowAddSupplier(!showAddSupplier)}><UserPlus size={18} /> הוסף ספק</button><input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /><button className="fileBtn" onClick={() => guardUpload() && uploadRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button><button onClick={exportExcel}><Download size={18} /> ייצוא</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section>
+    <section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש, סיווג, דירוג ותיקון ידני. {suppliers.length} ספקים במאגר.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><button onClick={() => setShowAddSupplier(!showAddSupplier)}><UserPlus size={18} /> הוסף ספק</button>{canUpload && <><input ref={uploadRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /><button className="fileBtn" onClick={() => uploadRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button></>}<button onClick={exportExcel}><Download size={18} /> ייצוא</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section>
 
     {/* Add supplier form */}
     {showAddSupplier && <section className="panel addSupForm">
@@ -1125,4 +1123,4 @@ function MiniField({ label, value, onChange }) { return <label className="miniFi
 function K({ title, value, big }) { return <div className={'kpi ' + (big ? 'big' : '')}><span>{title}</span><b>{value}</b></div>; }
 function Line({ l, v, c = 'ILS' }) { return <div className="line"><span>{l}</span><b>{fmt(v, c)}</b></div>; }
 
-createRoot(document.getElementById('root')).render(<AuthProvider><Shell /></AuthProvider>);
+createRoot(document.getElementById('root')).render(<AuthProvider><AuthGate><Shell /></AuthGate></AuthProvider>);

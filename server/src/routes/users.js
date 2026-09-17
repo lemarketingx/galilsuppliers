@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { deleteUser, findUserById, findUserByUsername, insertUser, listUsers, updateUser } from '../db.js';
 import { hashPassword, ROLES } from '../auth.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { deleteRequest, listRequests } from '../resetRequestsDb.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('admin'));
@@ -54,6 +55,16 @@ router.delete('/:id', (req, res) => {
   const target = findUserById(req.params.id);
   if (!target) return res.status(404).json({ error: 'המשתמש לא נמצא.' });
   deleteUser(req.params.id);
+  res.status(204).end();
+});
+
+// Password reset requests, submitted from the public "שכחתי סיסמה" screen.
+router.get('/reset-requests', (req, res) => {
+  res.json({ requests: listRequests() });
+});
+
+router.delete('/reset-requests/:id', (req, res) => {
+  deleteRequest(req.params.id);
   res.status(204).end();
 });
 

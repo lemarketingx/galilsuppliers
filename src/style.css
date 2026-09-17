@@ -198,6 +198,22 @@ table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{b
 .authUserRow{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:10px 12px}
 .authUserRow b{flex:1}
 .authUserRow select{width:auto;margin-top:0}
+.authUserRow span{color:#64748b;font-size:13px}
+.authResetRequests{background:#fffbeb;border:1px solid #fde68a;border-radius:16px;padding:12px 14px;margin-bottom:16px}
+.authResetRequests h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:6px;color:#92400e}
+.authResetRequests .authUserRow{background:white}
+
+/* Login screen */
+.authSplash{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f6f8fc}
+.authSplash img{width:120px;opacity:.6}
+.loginPage{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f6f8fc,#edf3ff);padding:20px}
+.loginCard{background:white;border-radius:28px;padding:36px 34px;width:100%;max-width:400px;box-shadow:0 30px 80px rgba(15,23,42,.14);display:flex;flex-direction:column;align-items:center;gap:6px}
+.loginLogo{width:180px;max-width:70%;margin-bottom:6px}
+.loginCard h1{font-size:18px;color:#475569;margin:0 0 22px;font-weight:800;text-align:center}
+.loginCard form{width:100%;display:flex;flex-direction:column;gap:14px}
+.loginCard label{width:100%}
+.loginCard .calc{width:100%;padding:13px;font-size:15px}
+.loginForgotLink{background:none;color:#4f46e5;font-weight:700;font-size:13px;padding:4px;align-self:center}
 
 /* Print */
 @media print{
