@@ -6,6 +6,9 @@
 .projectBar{grid-column:1/-1;display:flex;align-items:center;gap:14px;background:white;border:1px solid #dbe4f0;border-radius:20px;padding:12px 18px;box-shadow:0 4px 16px rgba(30,41,59,.04);flex-wrap:wrap}
 .projSelect{display:flex;align-items:center;gap:8px;flex:1;min-width:200px}
 .projSelect select{flex:1;border:1px solid #dbe4f0;border-radius:12px;padding:8px 12px;font-weight:700;font-family:inherit;color:#1e293b}
+.archiveToggle{padding:8px 10px;background:#f1f5f9;color:#475569;border-radius:12px;font-size:12px;white-space:nowrap}
+.archiveToggle.on{background:#fef3c7;color:#92400e}
+.archiveBadge{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:800}
 .projActions{display:flex;gap:6px}
 .projActions button{padding:8px 10px;background:#eef2ff;color:#3730a3;border-radius:12px}
 .projActions .dangerMini{background:#fee2e2;color:#b91c1c}

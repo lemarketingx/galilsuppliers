@@ -17,6 +17,24 @@ const LEGACY_BOQ = 'galil_boq_v5_real_sheets_disciplines';
 const VAT_RATE = 0.17;
 const COMPANY_NAME = 'שם החברה';
 const SYSTEM_TITLE = 'מערכת הנדסה ורכש';
+const ARCHIVE_YEARS = 4;
+
+function parseAnyDate(v) {
+  if (!v) return null;
+  if (typeof v === 'string') {
+    const m = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  }
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+function isArchivedDate(v, years = ARCHIVE_YEARS) {
+  const d = parseAnyDate(v);
+  if (!d) return false;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  return d < cutoff;
+}
 
 const fmt = (v, cur = 'ILS') => new Intl.NumberFormat('he-IL', { style: 'currency', currency: cur === 'USD' ? 'USD' : cur === 'EUR' ? 'EUR' : 'ILS', maximumFractionDigits: 0 }).format(Number(v) || 0);
 const num = v => { const n = Number(String(v ?? '').replace(/,/g, '').replace(/[₪$€]/g, '').trim()); return Number.isFinite(n) ? n : 0; };
@@ -294,19 +312,27 @@ function Dashboard({ onNavigate }) {
     const itemsLen = d?.items?.length || 0;
     let total = 0;
     if (d?.cart) d.cart.forEach(x => { total += (num(x.material) + num(x.labor) + num(x.engineering) + num(x.overhead)) * (x.qty || 1); });
-    return { ...p, cartLen, itemsLen, total, currency: d?.project?.currency || 'ILS', customer: d?.project?.customer || '', estimator: d?.project?.estimator || '' };
+    return { ...p, cartLen, itemsLen, total, currency: d?.project?.currency || 'ILS', customer: d?.project?.customer || '', estimator: d?.project?.estimator || '', archived: isArchivedDate(p.updatedAt) };
   }), [projects]);
+
+  const activeDetails = useMemo(() => projDetails.filter(p => !p.archived), [projDetails]);
+  const archivedDetails = useMemo(() => projDetails.filter(p => p.archived).sort((a, b) => (a.updatedAt || '').localeCompare(b.updatedAt || '')), [projDetails]);
+
+  const restoreProject = id => {
+    const idx = loadIdx().map(p => p.id === id ? { ...p, updatedAt: new Date().toISOString() } : p);
+    saveIdx(idx); setProjects(idx);
+  };
 
   const totalProjects = projects.length;
   const totalSuppliers = suppliers.length;
-  const totalEstimate = projDetails.reduce((s, p) => s + p.total, 0);
-  const activeProjects = projDetails.filter(p => p.status === 'בבדיקה' || p.status === 'מאושר').length;
+  const totalEstimate = activeDetails.reduce((s, p) => s + p.total, 0);
+  const activeProjects = activeDetails.filter(p => p.status === 'בבדיקה' || p.status === 'מאושר').length;
   const topDisciplines = useMemo(() => {
     const c = {};
     suppliers.forEach(s => { c[s.discipline] = (c[s.discipline] || 0) + 1; });
     return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [suppliers]);
-  const recentProjects = projDetails.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 5);
+  const recentProjects = activeDetails.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 5);
 
   return <main className="dashPage">
     <section className="dashWelcome">
@@ -319,6 +345,7 @@ function Dashboard({ onNavigate }) {
       <div className="dashStat" onClick={() => onNavigate('suppliers')}><Users size={28} /><b>{totalSuppliers}</b><span>ספקים במאגר</span></div>
       <div className="dashStat"><TrendingUp size={28} /><b>{fmt(totalEstimate)}</b><span>סה״כ אומדנים</span></div>
       <div className="dashStat"><Activity size={28} /><b>{activeProjects}</b><span>פרויקטים פעילים</span></div>
+      <div className="dashStat"><Database size={28} /><b>{archivedDetails.length}</b><span>בארכיון (מעל {ARCHIVE_YEARS} שנים)</span></div>
     </section>
 
     <section className="dashGrid">
@@ -347,6 +374,23 @@ function Dashboard({ onNavigate }) {
           return <div className="bar" key={name}><span><b>{name}</b><b>{count} ({pct}%)</b></span><i><em style={{ width: pct + '%' }} /></i></div>;
         })}</div>}
         <button className="dashLink" onClick={() => onNavigate('suppliers')}><Users size={16} /> עבור למאגר ספקים ← </button>
+      </div>
+    </section>
+
+    <section className="dashGrid">
+      <div className="dashCard">
+        <h3><Database size={20} /> ארכיון פרויקטים (ללא עדכון מעל {ARCHIVE_YEARS} שנים)</h3>
+        {archivedDetails.length === 0 ? <p className="dashEmpty">אין פרויקטים בארכיון.</p> :
+        <div className="dashTable">
+          <table><thead><tr><th>שם</th><th>לקוח</th><th>סטטוס</th><th>עדכון אחרון</th><th></th></tr></thead>
+          <tbody>{archivedDetails.map(p => <tr key={p.id}>
+            <td><b>{p.name}</b></td>
+            <td>{p.customer || '-'}</td>
+            <td><span className="dashStatus" style={{ background: STATUS_COLORS[p.status] || '#94a3b8' }}>{p.status || 'טיוטה'}</span></td>
+            <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('he-IL') : '-'}</td>
+            <td><button className="dashLink" onClick={() => restoreProject(p.id)}><RotateCcw size={14} /> שחזור</button></td>
+          </tr>)}</tbody></table>
+        </div>}
       </div>
     </section>
 
@@ -390,6 +434,9 @@ function BoqApp() {
   // #8 Favorites
   const [favorites, setFavorites] = useState(new Set());
   const [favOnly, setFavOnly] = useState(false);
+
+  // Archive (projects unchanged for 4+ years)
+  const [showArchived, setShowArchived] = useState(false);
 
   // #3 VAT
   const [showVat, setShowVat] = useState(false);
@@ -683,6 +730,8 @@ function BoqApp() {
   const vatAmount = showVat ? totals.total * VAT_RATE : 0;
   const grandTotal = totals.total + vatAmount;
   const cur = project.currency;
+  const archivedCount = projects.filter(p => isArchivedDate(p.updatedAt)).length;
+  const visibleProjects = showArchived ? projects : projects.filter(p => p.id === activeId || !isArchivedDate(p.updatedAt));
 
   return <main className={'layout' + (result ? ' reportOpen' : '')}>
     {/* #1 Project Bar */}
@@ -690,8 +739,9 @@ function BoqApp() {
       <div className="projSelect">
         <Layers size={16} />
         <select value={activeId || ''} onChange={e => switchProject(e.target.value)}>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name} {p.status ? `(${p.status})` : ''}</option>)}
+          {visibleProjects.map(p => <option key={p.id} value={p.id}>{p.name} {p.status ? `(${p.status})` : ''}{isArchivedDate(p.updatedAt) ? ' — בארכיון' : ''}</option>)}
         </select>
+        {archivedCount > 0 && <button className={'archiveToggle' + (showArchived ? ' on' : '')} onClick={() => setShowArchived(v => !v)} title="הצג פרויקטים בארכיון"><Database size={14} /> ארכיון ({archivedCount})</button>}
       </div>
       <div className="projActions">
         <button onClick={newProject} title="פרויקט חדש"><FolderPlus size={15} /></button>
@@ -952,6 +1002,7 @@ function SuppliersApp() {
   const [visibleCount, setVisibleCount] = useState(50);
   const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [newSup, setNewSup] = useState({ name: '', supplierNo: '', description: '', discipline: 'כללי / אחר', contact: '', phone: '', email: '', address: '', notes: '' });
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     const cached = localStorage.getItem(SUP_KEY);
@@ -962,7 +1013,8 @@ function SuppliersApp() {
 
   const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const parsed = parseWorkbook(wb); if (parsed.length > 0) { setSuppliers(parsed); setMessage(`נטענו ${parsed.length.toLocaleString('he-IL')} ספקים.`); } else { const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false }); const fallback = parseSuppliers(rows); setSuppliers(fallback); setMessage(`נטענו ${fallback.length.toLocaleString('he-IL')} ספקים (fallback).`); } } catch (err) { console.error(err); setMessage('שגיאה בקריאת הקובץ'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
 
-  const filtered = useMemo(() => { setVisibleCount(50); return suppliers.filter(s => (disc === 'הכל' || s.discipline === disc) && `${s.name} ${s.description || ''} ${s.field || ''} ${s.supplierNo || ''} ${s.project || ''} ${s.contact || ''} ${s.phone || ''} ${s.email || ''} ${s.fax || ''} ${s.address || ''} ${s.cityCountry || ''} ${s.notes || ''}`.toLowerCase().includes(query.toLowerCase())); }, [suppliers, disc, query]);
+  const archivedCount = useMemo(() => suppliers.filter(s => isArchivedDate(s.importedAt)).length, [suppliers]);
+  const filtered = useMemo(() => { setVisibleCount(50); return suppliers.filter(s => (disc === 'הכל' || s.discipline === disc) && (showArchived || !isArchivedDate(s.importedAt)) && `${s.name} ${s.description || ''} ${s.field || ''} ${s.supplierNo || ''} ${s.project || ''} ${s.contact || ''} ${s.phone || ''} ${s.email || ''} ${s.fax || ''} ${s.address || ''} ${s.cityCountry || ''} ${s.notes || ''}`.toLowerCase().includes(query.toLowerCase())); }, [suppliers, disc, query, showArchived]);
   const disciplineCounts = useMemo(() => { const c = {}; for (const s of suppliers) c[s.discipline] = (c[s.discipline] || 0) + 1; return c; }, [suppliers]);
   const stats = useMemo(() => SUP_DISCIPLINES.map(d => ({ name: d, count: disciplineCounts[d] || 0 })).filter(x => x.count > 0), [disciplineCounts]);
   const update = (id, patch) => setSuppliers(p => p.map(s => s.id === id ? { ...s, ...patch } : s));
@@ -1004,12 +1056,12 @@ function SuppliersApp() {
       </div>
     </section>}
 
-    <section className="supplierControls panel"><div className="search big"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש ספק לפי שם, תחום, טלפון, מייל..." />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div><select value={disc} onChange={e => setDisc(e.target.value)}><option value="הכל">הכל ({suppliers.length})</option>{SUP_DISCIPLINES.map(d => <option key={d} value={d}>{d} ({disciplineCounts[d] || 0})</option>)}</select></section>
+    <section className="supplierControls panel"><div className="search big"><Search size={18} /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש ספק לפי שם, תחום, טלפון, מייל..." />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div><select value={disc} onChange={e => setDisc(e.target.value)}><option value="הכל">הכל ({suppliers.length})</option>{SUP_DISCIPLINES.map(d => <option key={d} value={d}>{d} ({disciplineCounts[d] || 0})</option>)}</select>{archivedCount > 0 && <button className={'archiveToggle' + (showArchived ? ' on' : '')} onClick={() => setShowArchived(v => !v)} title={`הצג ספקים שלא עודכנו מעל ${ARCHIVE_YEARS} שנים`}><Database size={14} /> ארכיון ({archivedCount})</button>}</section>
     <section className="stats">{stats.map(s => <div className="stat" key={s.name}><b>{s.count}</b><span>{s.name}</span></div>)}</section>
     <section className="supplierGrid">
       {visible.length === 0 && <div className="emptyResults"><b>לא נמצאו ספקים</b><p>{query ? `אין תוצאות עבור "${query}"` : 'אין ספקים בקטגוריה זו'}</p></div>}
       {visible.map(s => <article className="supplier" key={s.id}>
-        <div className="supplierTop"><div><span>{s.discipline}</span><h3>{s.name}</h3><p>מס׳ ספק: {s.supplierNo || '-'}{s.address ? ` · ${s.address}` : ''}{s.cityCountry ? ` · ${s.cityCountry}` : ''}</p></div>
+        <div className="supplierTop"><div><span>{s.discipline}</span>{isArchivedDate(s.importedAt) && <span className="archiveBadge">בארכיון</span>}<h3>{s.name}</h3><p>מס׳ ספק: {s.supplierNo || '-'}{s.address ? ` · ${s.address}` : ''}{s.cityCountry ? ` · ${s.cityCountry}` : ''}</p></div>
         <div className="supTopActions"><button title="שכפל" onClick={() => duplicateSupplier(s)}><Copy size={14} /></button><button className="danger" title="מחק" onClick={() => del(s.id)}><Trash2 size={14} /></button></div></div>
         <p className="desc">{s.description || s.field || 'אין תיאור'}</p>
         <div className="supplierMeta">
