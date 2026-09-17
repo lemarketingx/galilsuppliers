@@ -1,7 +1,0 @@
-node_modules/
-.env
-data/users.json
-data/uploads.json
-data/reset-requests.json
-uploads/*
-!uploads/.gitkeep
