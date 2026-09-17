@@ -17,7 +17,7 @@
 .statusDot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .projDate{color:#64748b;font-size:13px;display:flex;align-items:center;gap:5px;white-space:nowrap}
 
-.layout{max-width:1450px;margin:auto;padding:24px;display:grid;grid-template-columns:1fr 430px;gap:22px}.left{display:grid;gap:18px}.panel{background:white;border:1px solid #dbe4f0;border-radius:26px;padding:22px;box-shadow:0 18px 50px rgba(30,41,59,.08)}.panel h2{margin:0 0 8px;font-size:24px;display:flex;align-items:center;gap:10px}.panel p{color:#64748b;margin:0;line-height:1.55}.upload,.supHero{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px dashed #8b5cf6;background:linear-gradient(135deg,#fff,#f7f5ff)}.status{display:inline-flex;gap:7px;align-items:center;background:#ecfdf5;color:#047857;border:1px solid #bbf7d0;border-radius:999px;padding:8px 12px;margin-top:14px;font-size:13px}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button,.actions .fileBtn{background:#4f46e5;color:white}.actions button:nth-child(2){background:#0f766e}.actions button:last-child{background:#e2e8f0;color:#0f172a}.formGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}label{font-weight:800;color:#475569;font-size:13px}input,select,textarea{width:100%;margin-top:7px;border:1px solid #dbe4f0;background:#fff;border-radius:14px;padding:12px;color:#0f172a;outline:none;font-family:inherit}textarea{min-height:70px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.layout{max-width:1450px;margin:auto;padding:24px;display:grid;grid-template-columns:1fr 430px;gap:22px}.left{display:grid;gap:18px}.panel{background:white;border:1px solid #dbe4f0;border-radius:26px;padding:22px;box-shadow:0 18px 50px rgba(30,41,59,.08)}.panel h2{margin:0 0 8px;font-size:24px;display:flex;align-items:center;gap:10px}.panel p{color:#64748b;margin:0;line-height:1.55}.upload,.supHero{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px dashed #8b5cf6;background:linear-gradient(135deg,#fff,#f7f5ff)}.status{display:inline-flex;gap:7px;align-items:center;background:#ecfdf5;color:#047857;border:1px solid #bbf7d0;border-radius:999px;padding:8px 12px;margin-top:14px;font-size:13px}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button,.actions .fileBtn{background:#4f46e5;color:white}.actions button:nth-child(2){background:#0f766e}.actions button.fileBtn{background:#0f766e}.actions button:last-child{background:#e2e8f0;color:#0f172a}.formGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}label{font-weight:800;color:#475569;font-size:13px}input,select,textarea{width:100%;margin-top:7px;border:1px solid #dbe4f0;background:#fff;border-radius:14px;padding:12px;color:#0f172a;outline:none;font-family:inherit}textarea{min-height:70px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
 
 /* VAT toggle & version info */
 .vatToggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;color:#4f46e5;white-space:nowrap}
@@ -178,6 +178,26 @@ table{width:100%;border-collapse:collapse;margin-top:18px;font-size:12px}th,td{b
 .disciplineManage button{background:#eef2ff;color:#3730a3}
 .disciplineManage .dangerMini{background:#fee2e2;color:#b91c1c}
 .dangerMini{background:#fee2e2!important;color:#b91c1c!important}
+
+/* Auth */
+.authBar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.authBar>button{background:#eef2ff;color:#3730a3;padding:9px 13px;font-size:13px}
+.authUser{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#334155;font-size:13px;background:#f1f5f9;border-radius:999px;padding:8px 13px}
+.authUser em{font-style:normal;color:#64748b;font-weight:700}
+.authOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.authModal{background:white;border-radius:22px;padding:24px;width:100%;max-width:380px;box-shadow:0 30px 80px rgba(15,23,42,.3);display:flex;flex-direction:column;gap:12px}
+.authAdminModal{max-width:600px}
+.authModalHead{display:flex;align-items:center;justify-content:space-between}
+.authModalHead h2{margin:0;display:flex;align-items:center;gap:8px;font-size:20px}
+.authModalHead button{background:transparent;color:#64748b;padding:4px}
+.authHint{margin:0;color:#64748b;font-size:13px;line-height:1.5}
+.authError{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700}
+.authNewUser{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.authNewUser input,.authNewUser select{width:auto;flex:1;min-width:120px;margin-top:0}
+.authUsersList{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow:auto}
+.authUserRow{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:10px 12px}
+.authUserRow b{flex:1}
+.authUserRow select{width:auto;margin-top:0}
 
 /* Print */
 @media print{
