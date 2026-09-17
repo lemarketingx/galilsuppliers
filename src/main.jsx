@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader, Phone, Mail, LayoutDashboard, TrendingUp, Activity, Package, UserPlus } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
-import { AuthProvider, AuthBar, useUploadGuard, LoginModal } from './auth.jsx';
+import { AuthProvider, AuthBar, useUploadGuard, useAuth, LoginModal } from './auth.jsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -414,6 +414,7 @@ function Dashboard({ onNavigate }) {
 function BoqApp() {
   const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null); const saveManualRef = useRef(null);
   const { guard: guardUpload, showLogin: showUploadLogin, setShowLogin: setShowUploadLogin } = useUploadGuard();
+  const { uploadFile } = useAuth();
   const [items, setItems] = useState(sampleItems);
   const [boqDisciplines, setBoqDisciplines] = useState(defaultBoqDisciplines);
   const [newDiscipline, setNewDiscipline] = useState('');
@@ -556,7 +557,14 @@ function BoqApp() {
   const toggleSelect = id => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selectAll = () => { if (selected.size === filtered.length) setSelected(new Set()); else setSelected(new Set(filtered.map(x => x.id || x.code))); };
 
-  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const all = []; const newMap = makeDisciplineMapFromSheetNames(wb.SheetNames, defaultBoqDisciplines); wb.SheetNames.forEach(sheetName => { const ws = wb.Sheets[sheetName]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }); rows.forEach((row, i) => { const mapped = mapBoqRow(row, all.length + i, sheetName); if (mapped.desc !== 'פריט ללא תיאור' || itemTotal(mapped) > 0) all.push(mapped); }); }); setBoqDisciplines(newMap); setItems(all.length ? all : sampleItems); setDisc('all'); setResult(false); setSelected(new Set()); setStatus(`נטענו ${all.length.toLocaleString('he-IL')} פריטים מתוך ${wb.SheetNames.length} לשוניות.`); } catch (err) { console.error(err); setStatus('שגיאה בקריאת הקובץ.'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
+  const upload = async e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    e.target.value = '';
+    setStatus('מעלה קובץ...');
+    try { await uploadFile(f, 'boq-excel'); }
+    catch (err) { setStatus(`ההעלאה נחסמה: ${err.message}`); return; }
+    const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const all = []; const newMap = makeDisciplineMapFromSheetNames(wb.SheetNames, defaultBoqDisciplines); wb.SheetNames.forEach(sheetName => { const ws = wb.Sheets[sheetName]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }); rows.forEach((row, i) => { const mapped = mapBoqRow(row, all.length + i, sheetName); if (mapped.desc !== 'פריט ללא תיאור' || itemTotal(mapped) > 0) all.push(mapped); }); }); setBoqDisciplines(newMap); setItems(all.length ? all : sampleItems); setDisc('all'); setResult(false); setSelected(new Set()); setStatus(`נטענו ${all.length.toLocaleString('he-IL')} פריטים מתוך ${wb.SheetNames.length} לשוניות.`); } catch (err) { console.error(err); setStatus('שגיאה בקריאת הקובץ.'); } }; r.readAsArrayBuffer(f);
+  };
   const addDiscipline = () => { const name = clean(newDiscipline); if (!name) return; const id = normalizeBoqDisc(name); setBoqDisciplines(prev => ({ ...prev, [id]: { name, icon: 'FileText' } })); setDisc(id); setNewDiscipline(''); };
   const deleteDiscipline = id => { if (disc === 'all' || !boqDisciplines[id]) return; if (!confirm('למחוק דיסציפלינה וכל הפריטים שלה?')) return; setBoqDisciplines(prev => { const next = { ...prev }; delete next[id]; return next; }); setItems(prev => prev.filter(x => x.disciplineId !== id)); setCart(prev => prev.filter(x => x.disciplineId !== id)); setDisc('all'); };
 
@@ -684,10 +692,14 @@ function BoqApp() {
   };
 
   // #14 Attachments + PDF auto-parse
-  const handleAttach = e => {
+  const handleAttach = async e => {
     const files = Array.from(e.target?.files || e.dataTransfer?.files || []);
-    files.forEach(f => {
-      if (f.size > 10000000) { alert(`${f.name} גדול מ-10MB, לא נשמר`); return; }
+    if (e.target) e.target.value = '';
+    for (const f of files) {
+      if (f.size > 10000000) { alert(`${f.name} גדול מ-10MB, לא נשמר`); continue; }
+
+      try { await uploadFile(f, 'attachment'); }
+      catch (err) { setStatus(`ההעלאה של ${f.name} נחסמה: ${err.message}`); continue; }
 
       // PDF auto-parse
       if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
@@ -708,14 +720,13 @@ function BoqApp() {
         const reader2 = new FileReader();
         reader2.onload = ev2 => setAttachments(prev => [...prev, { id: uid('att'), name: f.name, type: f.type, size: f.size, dataUrl: f.size < 3000000 ? ev2.target.result : null, addedAt: new Date().toLocaleDateString('he-IL') }]);
         reader2.readAsDataURL(f);
-        return;
+        continue;
       }
 
       const reader = new FileReader();
       reader.onload = ev => setAttachments(prev => [...prev, { id: uid('att'), name: f.name, type: f.type, size: f.size, dataUrl: ev.target.result, addedAt: new Date().toLocaleDateString('he-IL') }]);
       reader.readAsDataURL(f);
-    });
-    if (e.target) e.target.value = '';
+    }
   };
   const removeAttach = id => setAttachments(prev => prev.filter(a => a.id !== id));
   const importPdfItems = () => {
@@ -1014,6 +1025,7 @@ function BoqApp() {
 function SuppliersApp() {
   const uploadRef = useRef(null);
   const { guard: guardUpload, showLogin: showUploadLogin, setShowLogin: setShowUploadLogin } = useUploadGuard();
+  const { uploadFile } = useAuth();
   const [suppliers, setSuppliers] = useState(sampleSuppliers);
   const [query, setQuery] = useState(''); const [disc, setDisc] = useState('הכל');
   const [message, setMessage] = useState('טוען מאגר ספקים...'); const [loaded, setLoaded] = useState(false);
@@ -1029,7 +1041,14 @@ function SuppliersApp() {
   }, []);
   useEffect(() => { if (loaded) localStorage.setItem(SUP_KEY, JSON.stringify(suppliers)); }, [suppliers, loaded]);
 
-  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const parsed = parseWorkbook(wb); if (parsed.length > 0) { setSuppliers(parsed); setMessage(`נטענו ${parsed.length.toLocaleString('he-IL')} ספקים.`); } else { const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false }); const fallback = parseSuppliers(rows); setSuppliers(fallback); setMessage(`נטענו ${fallback.length.toLocaleString('he-IL')} ספקים (fallback).`); } } catch (err) { console.error(err); setMessage('שגיאה בקריאת הקובץ'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
+  const upload = async e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    e.target.value = '';
+    setMessage('מעלה קובץ...');
+    try { await uploadFile(f, 'suppliers-excel'); }
+    catch (err) { setMessage(`ההעלאה נחסמה: ${err.message}`); return; }
+    const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const parsed = parseWorkbook(wb); if (parsed.length > 0) { setSuppliers(parsed); setMessage(`נטענו ${parsed.length.toLocaleString('he-IL')} ספקים.`); } else { const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false }); const fallback = parseSuppliers(rows); setSuppliers(fallback); setMessage(`נטענו ${fallback.length.toLocaleString('he-IL')} ספקים (fallback).`); } } catch (err) { console.error(err); setMessage('שגיאה בקריאת הקובץ'); } }; r.readAsArrayBuffer(f);
+  };
 
   const archivedCount = useMemo(() => suppliers.filter(s => isArchivedDate(s.importedAt)).length, [suppliers]);
   const filtered = useMemo(() => { setVisibleCount(50); return suppliers.filter(s => (disc === 'הכל' || s.discipline === disc) && (showArchived || !isArchivedDate(s.importedAt)) && `${s.name} ${s.description || ''} ${s.field || ''} ${s.supplierNo || ''} ${s.project || ''} ${s.contact || ''} ${s.phone || ''} ${s.email || ''} ${s.fax || ''} ${s.address || ''} ${s.cityCountry || ''} ${s.notes || ''}`.toLowerCase().includes(query.toLowerCase())); }, [suppliers, disc, query, showArchived]);

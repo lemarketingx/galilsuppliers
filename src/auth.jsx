@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { LogIn, LogOut, Lock, UserCog, X, Trash2, Plus, ShieldCheck } from 'lucide-react';
+import { LogIn, LogOut, Lock, UserCog, X, Trash2, Plus, ShieldCheck, History } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'galil_auth_token_v1';
@@ -14,6 +14,24 @@ async function apiFetch(path, opts = {}) {
   try { data = await res.json(); } catch {}
   if (!res.ok) throw new Error(data?.error || `שגיאת שרת (${res.status}).`);
   return data;
+}
+
+/* Sends the raw file to the auth server first. The server checks the caller's
+   token + role (uploader/admin) before accepting it and logs who uploaded
+   what, when. Only once this resolves does the caller's existing client-side
+   parsing (Excel/PDF) run - without a valid, permitted login the server
+   rejects the request and nothing gets processed. */
+async function uploadFileToServer(file, kind) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) throw new Error('יש להתחבר לפני העלאת קבצים.');
+  const body = new FormData();
+  body.append('file', file);
+  body.append('kind', kind);
+  const res = await fetch(`${API_URL}/api/uploads`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error(data?.error || `שגיאת שרת (${res.status}).`);
+  return data.upload;
 }
 
 const ROLE_LABELS = { admin: 'מנהל מערכת', uploader: 'מורשה העלאה', viewer: 'צפייה בלבד' };
@@ -41,7 +59,7 @@ export function AuthProvider({ children }) {
   const canUpload = !!user && (user.role === 'uploader' || user.role === 'admin');
   const isAdmin = !!user && user.role === 'admin';
 
-  return <AuthContext.Provider value={{ user, ready, login, logout, canUpload, isAdmin, roleLabel: user ? ROLE_LABELS[user.role] || user.role : '', apiFetch }}>
+  return <AuthContext.Provider value={{ user, ready, login, logout, canUpload, isAdmin, roleLabel: user ? ROLE_LABELS[user.role] || user.role : '', apiFetch, uploadFile: uploadFileToServer }}>
     {children}
   </AuthContext.Provider>;
 }
@@ -93,15 +111,49 @@ export function AuthBar() {
   const { user, logout, roleLabel, isAdmin } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showLog, setShowLog] = useState(false);
 
   return <div className="authBar">
     {user ? <>
       <span className="authUser"><ShieldCheck size={15} /> {user.username} <em>({roleLabel})</em></span>
       {isAdmin && <button onClick={() => setShowAdmin(true)}><UserCog size={15} /> ניהול משתמשים</button>}
+      {isAdmin && <button onClick={() => setShowLog(true)}><History size={15} /> יומן העלאות</button>}
       <button onClick={logout}><LogOut size={15} /> התנתקות</button>
     </> : <button onClick={() => setShowLogin(true)}><LogIn size={15} /> התחברות</button>}
     {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     {showAdmin && <UsersAdmin onClose={() => setShowAdmin(false)} />}
+    {showLog && <UploadsLog onClose={() => setShowLog(false)} />}
+  </div>;
+}
+
+const KIND_LABELS = { 'boq-excel': 'Excel מחירון', 'suppliers-excel': 'Excel ספקים', attachment: 'צרופה' };
+const fmtSize = n => n > 1e6 ? `${(n / 1e6).toFixed(1)}MB` : `${Math.round(n / 1024)}KB`;
+
+function UploadsLog({ onClose }) {
+  const { apiFetch } = useAuth();
+  const [uploads, setUploads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch('/api/uploads').then(d => setUploads(d.uploads)).catch(e => setError(e.message)).finally(() => setLoading(false));
+  }, []);
+
+  return <div className="authOverlay" onClick={onClose}>
+    <div className="authModal authAdminModal" onClick={e => e.stopPropagation()}>
+      <div className="authModalHead"><h2><History size={20} /> יומן העלאות</h2><button onClick={onClose}><X size={18} /></button></div>
+      <p className="authHint">רשימת כל הקבצים שהועלו לאתר, מי העלה ומתי.</p>
+      {error && <div className="authError">{error}</div>}
+      {loading ? <p>טוען...</p> : uploads.length === 0 ? <p>עדיין לא הועלו קבצים.</p> : <div className="authUsersList">
+        {uploads.map(u => <div className="authUserRow" key={u.id}>
+          <b>{u.originalName}</b>
+          <span>{KIND_LABELS[u.kind] || u.kind}</span>
+          <span>{fmtSize(u.size)}</span>
+          <span>{u.uploadedBy}</span>
+          <span>{new Date(u.uploadedAt).toLocaleString('he-IL')}</span>
+        </div>)}
+      </div>}
+    </div>
   </div>;
 }
 
