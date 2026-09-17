@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { LogOut, UserCog, X, Trash2, Plus, ShieldCheck, History, KeyRound } from 'lucide-react';
+import { LogIn, LogOut, UserCog, X, Trash2, Plus, ShieldCheck, History, KeyRound } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const TOKEN_KEY = 'galil_auth_token_v1';
@@ -66,15 +66,20 @@ export function AuthProvider({ children }) {
   </AuthContext.Provider>;
 }
 
-/* Full-screen gate: nothing in the app renders until the user is signed in. */
+/* Full-screen gate: nothing in the app renders until the user is signed in.
+   Currently NOT used in main.jsx (disabled while the API/DB deploy on
+   Vercel is being sorted out) - the site works fully logged-out, and
+   logging in (via the header button/modal below) only unlocks uploads and
+   admin screens. Kept here so it's a one-line change to re-enable later:
+   wrap <Shell/> with <AuthGate> in main.jsx again. */
 export function AuthGate({ children }) {
   const { user, ready } = useAuth();
   if (!ready) return <div className="authSplash"><img src={LOGO_URL} alt="" /></div>;
-  if (!user) return <LoginScreen />;
+  if (!user) return <div className="loginPage"><LoginCard /></div>;
   return children;
 }
 
-function LoginScreen() {
+function LoginCard() {
   const { login, forgotPassword } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -102,36 +107,49 @@ function LoginScreen() {
     finally { setBusy(false); }
   };
 
-  return <div className="loginPage">
-    <div className="loginCard">
-      <img src={LOGO_URL} alt="קבוצת גליל" className="loginLogo" />
-      <h1>{SYSTEM_TITLE_FALLBACK}</h1>
+  return <div className="loginCard">
+    <img src={LOGO_URL} alt="קבוצת גליל" className="loginLogo" />
+    <h1>{SYSTEM_TITLE_FALLBACK}</h1>
 
-      {mode === 'login' ? <form onSubmit={submit}>
-        <label>שם משתמש<input value={username} onChange={e => setUsername(e.target.value)} autoFocus /></label>
-        <label>סיסמה<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
+    {mode === 'login' ? <form onSubmit={submit}>
+      <label>שם משתמש<input value={username} onChange={e => setUsername(e.target.value)} autoFocus /></label>
+      <label>סיסמה<input type="password" value={password} onChange={e => setPassword(e.target.value)} /></label>
+      {error && <div className="authError">{error}</div>}
+      <button className="calc" type="submit" disabled={busy}>{busy ? 'מתחבר...' : 'התחברות'}</button>
+      <button type="button" className="loginForgotLink" onClick={() => { setMode('forgot'); setError(''); }}>שכחתי סיסמה</button>
+    </form> : <form onSubmit={submitForgot}>
+      {forgotSent ? <p className="authHint">אם שם המשתמש קיים במערכת, בקשתך נשלחה למנהל המערכת והוא יצור איתך קשר עם סיסמה חדשה.</p> : <>
+        <p className="authHint">הזן/י שם משתמש - הבקשה תישלח למנהל המערכת לאיפוס הסיסמה.</p>
+        <label>שם משתמש<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} autoFocus /></label>
         {error && <div className="authError">{error}</div>}
-        <button className="calc" type="submit" disabled={busy}>{busy ? 'מתחבר...' : 'התחברות'}</button>
-        <button type="button" className="loginForgotLink" onClick={() => { setMode('forgot'); setError(''); }}>שכחתי סיסמה</button>
-      </form> : <form onSubmit={submitForgot}>
-        {forgotSent ? <p className="authHint">אם שם המשתמש קיים במערכת, בקשתך נשלחה למנהל המערכת והוא יצור איתך קשר עם סיסמה חדשה.</p> : <>
-          <p className="authHint">הזן/י שם משתמש - הבקשה תישלח למנהל המערכת לאיפוס הסיסמה.</p>
-          <label>שם משתמש<input value={forgotUsername} onChange={e => setForgotUsername(e.target.value)} autoFocus /></label>
-          {error && <div className="authError">{error}</div>}
-          <button className="calc" type="submit" disabled={busy}>{busy ? 'שולח...' : 'שליחת בקשה'}</button>
-        </>}
-        <button type="button" className="loginForgotLink" onClick={() => { setMode('login'); setError(''); setForgotSent(false); }}>חזרה להתחברות</button>
-      </form>}
-    </div>
+        <button className="calc" type="submit" disabled={busy}>{busy ? 'שולח...' : 'שליחת בקשה'}</button>
+      </>}
+      <button type="button" className="loginForgotLink" onClick={() => { setMode('login'); setError(''); setForgotSent(false); }}>חזרה להתחברות</button>
+    </form>}
   </div>;
 }
 
 const SYSTEM_TITLE_FALLBACK = 'מערכת הנדסה ורכש';
 
+function LoginModal({ onClose }) {
+  return <div className="authOverlay" onClick={onClose}>
+    <div onClick={e => e.stopPropagation()} style={{ position: 'relative' }}>
+      <button onClick={onClose} className="loginModalClose" title="סגירה"><X size={18} /></button>
+      <LoginCard />
+    </div>
+  </div>;
+}
+
 export function AuthBar() {
   const { user, logout, roleLabel, isAdmin } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showLog, setShowLog] = useState(false);
+
+  if (!user) return <div className="authBar">
+    <button onClick={() => setShowLogin(true)}><LogIn size={15} /> התחברות</button>
+    {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+  </div>;
 
   return <div className="authBar">
     <span className="authUser"><ShieldCheck size={15} /> {user.username} <em>({roleLabel})</em></span>

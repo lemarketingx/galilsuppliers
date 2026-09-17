@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader, Phone, Mail, LayoutDashboard, TrendingUp, Activity, Package, UserPlus } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
-import { AuthProvider, AuthGate, AuthBar, useAuth } from './auth.jsx';
+import { AuthProvider, AuthBar, useAuth } from './auth.jsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -292,7 +292,7 @@ const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentati
 function Shell() {
   const [tab, setTab] = useState('dashboard');
   return <div className="app" dir="rtl">
-    <header className="top"><div className="brand"><div className="logoPlaceholder"><Building2 size={32} /></div><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
+    <header className="top"><div className="brand"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
     <AuthBar />
     <nav><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}><LayoutDashboard size={18} /> דשבורד</button><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
     {tab === 'dashboard' ? <Dashboard onNavigate={setTab} /> : tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
@@ -1002,8 +1002,8 @@ function BoqApp() {
       </div>
       <div className="reportBox">
       {/* #16 Print cover */}
-      <div className="printCover"><div className="logoPlaceholder printLogo"><Building2 size={48} /></div><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
-      <div className="reportHead"><div className="logoPlaceholder"><Building2 size={28} /></div><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
+      <div className="printCover"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="printLogo" /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
+      <div className="reportHead"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
       <div className="kpis"><K title="חומרים" value={fmt(totals.material, cur)} /><K title="עבודה" value={fmt(totals.labor, cur)} /><K title="תכנון" value={fmt(totals.eng, cur)} /><K title="סה״כ" value={fmt(grandTotal, cur)} big /></div>
       <div className="reportGrid">
         <div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDiscArr.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total, cur)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div>
@@ -1123,4 +1123,4 @@ function MiniField({ label, value, onChange }) { return <label className="miniFi
 function K({ title, value, big }) { return <div className={'kpi ' + (big ? 'big' : '')}><span>{title}</span><b>{value}</b></div>; }
 function Line({ l, v, c = 'ILS' }) { return <div className="line"><span>{l}</span><b>{fmt(v, c)}</b></div>; }
 
-createRoot(document.getElementById('root')).render(<AuthProvider><AuthGate><Shell /></AuthGate></AuthProvider>);
+createRoot(document.getElementById('root')).render(<AuthProvider><Shell /></AuthProvider>);
