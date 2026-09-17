@@ -73,18 +73,19 @@ function makeDisciplineMapFromSheetNames(sheetNames, existing = defaultBoqDiscip
 }
 
 const sampleItems = [
-  { disciplineId: 'piping', code: 'P-001', desc: 'אספקה והתקנת צינור CS Sch.40 בקוטר 2"', unit: 'מטר', material: 145, labor: 95, engineering: 18, overhead: 22, supplier: 'ספק דוגמה', validity: '30 יום', notes: 'כולל חיתוך וריתוך', defaultQty: 1 },
-  { disciplineId: 'electricity', code: 'E-001', desc: 'אספקה והשחלת כבל חשמל 5x10 N2XY', unit: 'מטר', material: 48, labor: 32, engineering: 6, overhead: 8, supplier: 'ספק דוגמה', validity: '45 יום', notes: 'כולל סימון כבלים', defaultQty: 1 },
-  { disciplineId: 'fire', code: 'F-001', desc: 'התקנת מערכת כיבוי אש / ספרינקלרים כולל אביזרים', unit: 'מטר', material: 210, labor: 135, engineering: 30, overhead: 35, supplier: 'ספק כיבוי אש', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 },
-  { disciplineId: 'hvac', code: 'H-001', desc: 'התקנת תעלת מיזוג אויר כולל תליות ובידוד בסיסי', unit: 'מטר', material: 180, labor: 120, engineering: 25, overhead: 30, supplier: 'ספק מיזוג', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 },
-  { disciplineId: 'civil', code: 'C-001', desc: 'יציקת בטון C30 כולל טפסנות בסיסית וברזל', unit: 'מ״ק', material: 720, labor: 520, engineering: 95, overhead: 120, supplier: 'קבלן דוגמה', validity: '30 יום', notes: 'לא כולל בדיקות מעבדה', defaultQty: 1 },
-  { disciplineId: 'instrumentation', code: 'I-001', desc: 'אספקה והתקנת משדר לחץ כולל חיווט ובדיקת לולאה', unit: 'יח׳', material: 1350, labor: 480, engineering: 220, overhead: 120, supplier: 'ספק מכשור', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 }
+  { disciplineId: 'piping', code: 'P-001', desc: 'אספקה והתקנת צינור CS Sch.40 בקוטר 2"', unit: 'מטר', material: 145, labor: 95, engineering: 18, overhead: 22, supplier: 'ספק דוגמה', workType: 'אספקה והתקנה', validity: '30 יום', notes: 'כולל חיתוך וריתוך', defaultQty: 1 },
+  { disciplineId: 'electricity', code: 'E-001', desc: 'אספקה והשחלת כבל חשמל 5x10 N2XY', unit: 'מטר', material: 48, labor: 32, engineering: 6, overhead: 8, supplier: 'ספק דוגמה', workType: 'אספקה בלבד', validity: '45 יום', notes: 'כולל סימון כבלים', defaultQty: 1 },
+  { disciplineId: 'fire', code: 'F-001', desc: 'התקנת מערכת כיבוי אש / ספרינקלרים כולל אביזרים', unit: 'מטר', material: 210, labor: 135, engineering: 30, overhead: 35, supplier: 'ספק כיבוי אש', workType: 'התקנה בלבד', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 },
+  { disciplineId: 'hvac', code: 'H-001', desc: 'התקנת תעלת מיזוג אויר כולל תליות ובידוד בסיסי', unit: 'מטר', material: 180, labor: 120, engineering: 25, overhead: 30, supplier: 'ספק מיזוג', workType: 'אספקה והתקנה', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 },
+  { disciplineId: 'civil', code: 'C-001', desc: 'יציקת בטון C30 כולל טפסנות בסיסית וברזל', unit: 'מ״ק', material: 720, labor: 520, engineering: 95, overhead: 120, supplier: 'קבלן דוגמה', workType: 'התקנה בלבד', validity: '30 יום', notes: 'לא כולל בדיקות מעבדה', defaultQty: 1 },
+  { disciplineId: 'instrumentation', code: 'I-001', desc: 'אספקה והתקנת משדר לחץ כולל חיווט ובדיקת לולאה', unit: 'יח׳', material: 1350, labor: 480, engineering: 220, overhead: 120, supplier: 'ספק מכשור', workType: 'אספקה והתקנה', validity: '30 יום', notes: 'נתון דוגמה', defaultQty: 1 }
 ];
 
 function inferBoqDiscipline(...values) { const t = values.join(' ').toLowerCase(); if (/כיבוי|אש|ספרינקלר|sprinkler|fire|מטף/.test(t)) return 'fire'; if (/מיזוג|אויר|אוויר|hvac|צילר|chiller|מפוח|duct/.test(t)) return 'hvac'; if (/מכשור|בקרה|instrument|control|plc|dcs|scada|חיישן|sensor|transmitter|משדר/.test(t)) return 'instrumentation'; if (/צנרת|צינור|pipe|valve|ברז|flange|אוגן/.test(t)) return 'piping'; if (/חשמל|כבל|לוח|ארון|cable|elect|panel/.test(t)) return 'electricity'; if (/אזרח|בטון|ברזל|חפירה|קבלן|civil|concrete|rebar|עפר/.test(t)) return 'civil'; return 'piping'; }
 function mapBoqRow(row, i, forcedDiscipline = '') {
   const section = getVal(row, ['תאור הסעיף/פרק', 'תיאור הסעיף/פרק', 'תאור סעיף', 'תיאור סעיף', 'תיאור', 'תאור', 'Description']);
   const supplier = getVal(row, ['ספק', 'supplier', 'Vendor']);
+  const workType = getVal(row, ['ציוד / התקנה', 'ציוד/התקנה', 'ציוד התקנה', 'Equipment / Installation', 'Equipment/Installation', 'Installation']);
   const sku = getVal(row, ['מק"ט', 'מק״ט', 'מקט', 'code', 'קוד']);
   const qty = num(getVal(row, ['כמות', 'Qty', 'Quantity'])) || 1;
   const unit = getVal(row, ['יחידה', 'יחידת מידה', 'Unit']) || 'יח׳';
@@ -97,8 +98,9 @@ function mapBoqRow(row, i, forcedDiscipline = '') {
   const discRaw = getVal(row, ['discipline', 'Discipline', 'דיסציפלינה', 'תחום', 'פרק']);
   const calc = unitPrice || (totalVat && qty ? totalVat / qty : 0);
   const desc = clean(section || resource || projectDesc || '');
+  const dataSource = clean([project, projectDesc].filter(Boolean).join(' - '));
   const disciplineId = forcedDiscipline ? normalizeBoqDisc(forcedDiscipline) : (discRaw ? normalizeBoqDisc(discRaw) : inferBoqDiscipline(section, resource, projectDesc));
-  return { id: uid('item'), disciplineId, code: String(sku || `XL-${i + 1}`), desc: desc || 'פריט ללא תיאור', unit, material: calc, labor: 0, engineering: 0, overhead: 0, supplier: String(supplier || ''), validity: String(quoteDate || ''), notes: String([project && `פרויקט: ${project}`, projectDesc && `תיאור פרויקט: ${projectDesc}`, resource && `משאב: ${resource}`, totalVat && `מחיר כולל מעמ: ${fmt(totalVat)}`].filter(Boolean).join(' | ')), defaultQty: qty, currency: getVal(row, ['מטבע חוזה', 'מטבע', 'Currency']) || 'ILS', totalIncludingVat: totalVat };
+  return { id: uid('item'), disciplineId, code: String(sku || `XL-${i + 1}`), desc: desc || 'פריט ללא תיאור', unit, material: calc, labor: 0, engineering: 0, overhead: 0, supplier: String(supplier || ''), workType: clean(workType), validity: String(quoteDate || ''), notes: String([dataSource && `מקור נתונים: ${dataSource}`, resource && `משאב: ${resource}`, totalVat && `מחיר כולל מעמ: ${fmt(totalVat)}`].filter(Boolean).join(' | ')), defaultQty: qty, currency: getVal(row, ['מטבע חוזה', 'מטבע', 'Currency']) || 'ILS', totalIncludingVat: totalVat };
 }
 const itemTotal = i => num(i.material) + num(i.labor) + num(i.engineering) + num(i.overhead);
 
@@ -435,6 +437,9 @@ function BoqApp() {
   const [favorites, setFavorites] = useState(new Set());
   const [favOnly, setFavOnly] = useState(false);
 
+  // Filter by equipment / installation type
+  const [workTypeFilter, setWorkTypeFilter] = useState('all');
+
   // Archive (projects unchanged for 4+ years)
   const [showArchived, setShowArchived] = useState(false);
 
@@ -530,15 +535,18 @@ function BoqApp() {
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
   }, []);
 
+  // Distinct equipment / installation types available for filtering
+  const workTypes = useMemo(() => [...new Set(items.map(x => x.workType).filter(Boolean))], [items]);
+
   // Filtering & sorting
   const filtered = useMemo(() => {
-    let arr = items.filter(x => (disc === 'all' || x.disciplineId === disc) && `${x.desc} ${x.supplier} ${x.code} ${x.notes}`.toLowerCase().includes(query.toLowerCase()));
+    let arr = items.filter(x => (disc === 'all' || x.disciplineId === disc) && (workTypeFilter === 'all' || x.workType === workTypeFilter) && `${x.desc} ${x.code} ${x.notes}`.toLowerCase().includes(query.toLowerCase()));
     if (favOnly) arr = arr.filter(x => favorites.has(x.code));
     if (sortMode === 'price-asc') arr = [...arr].sort((a, b) => itemTotal(a) - itemTotal(b));
     else if (sortMode === 'price-desc') arr = [...arr].sort((a, b) => itemTotal(b) - itemTotal(a));
     else if (sortMode === 'name') arr = [...arr].sort((a, b) => a.desc.localeCompare(b.desc));
     return arr;
-  }, [items, disc, query, favOnly, favorites, sortMode]);
+  }, [items, disc, query, favOnly, favorites, sortMode, workTypeFilter]);
 
   const add = item => setCart(prev => { const ex = prev.find(x => x.code === item.code && x.disciplineId === item.disciplineId && x.desc === item.desc); if (ex) return prev.map(x => x === ex ? { ...x, qty: x.qty + (item.defaultQty || 1) } : x); return [...prev, { ...item, id: uid('cart'), qty: item.defaultQty || 1, cartNote: '' }]; });
   const addSelected = () => { const toAdd = items.filter(x => selected.has(x.id || x.code)); toAdd.forEach(add); setSelected(new Set()); };
@@ -647,7 +655,7 @@ function BoqApp() {
 
   // #10 Detailed Excel export
   const exportCSV = () => {
-    const data = cart.map(x => ({ 'דיסציפלינה': boqDisciplines[x.disciplineId]?.name || x.disciplineId, 'מק״ט': x.code, 'תיאור': x.desc, 'כמות': x.qty, 'יחידה': x.unit, 'חומרים': num(x.material), 'עבודה': num(x.labor), 'תכנון': num(x.engineering), 'תקורה': num(x.overhead), 'עלות ליחידה': itemTotal(x), 'סה״כ שורה': itemTotal(x) * x.qty, 'ספק': x.supplier || '', 'הערה': x.cartNote || '' }));
+    const data = cart.map(x => ({ 'דיסציפלינה': boqDisciplines[x.disciplineId]?.name || x.disciplineId, 'מק״ט': x.code, 'תיאור': x.desc, 'ציוד / התקנה': x.workType || '', 'כמות': x.qty, 'יחידה': x.unit, 'חומרים': num(x.material), 'עבודה': num(x.labor), 'תכנון': num(x.engineering), 'תקורה': num(x.overhead), 'עלות ליחידה': itemTotal(x), 'סה״כ שורה': itemTotal(x) * x.qty, 'הערה': x.cartNote || '' }));
     data.push({});
     data.push({ 'דיסציפלינה': 'סיכום', 'תיאור': 'עלות ישירה', 'סה״כ שורה': totals.direct });
     data.push({ 'תיאור': `ניהול ${percent.management}%`, 'סה״כ שורה': totals.management });
@@ -821,7 +829,11 @@ function BoqApp() {
         <div className="catalogTop">
           <div><h2><Calculator /> מחירון פריטים ({filtered.length})</h2></div>
           <div className="catalogActions">
-            <div className="search"><Search size={18} /><input ref={searchRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש פריט / ספק / מק״ט (Ctrl+F)" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div>
+            <div className="search"><Search size={18} /><input ref={searchRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש פריט / מק״ט (Ctrl+F)" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div>
+            {workTypes.length > 0 && <select className="sortSelect" value={workTypeFilter} onChange={e => setWorkTypeFilter(e.target.value)} title="סינון לפי ציוד / התקנה">
+              <option value="all">ציוד / התקנה: הכל</option>
+              {workTypes.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>}
             <select className="sortSelect" value={sortMode} onChange={e => setSortMode(e.target.value)} title="מיון">
               <option value="default">ברירת מחדל</option><option value="price-asc">מחיר: נמוך לגבוה</option><option value="price-desc">מחיר: גבוה לנמוך</option><option value="name">לפי שם</option>
             </select>
@@ -859,7 +871,7 @@ function BoqApp() {
           {filtered.map((it, idx) => { const Icon = getIcon(boqDisciplines[it.disciplineId]?.icon); const itemId = it.id || it.code; return <div className={'item' + (selected.has(itemId) ? ' itemSelected' : '')} key={`${itemId}-${idx}`}>
             <button className="itemCheck" onClick={() => toggleSelect(itemId)}>{selected.has(itemId) ? <CheckSquare size={18} /> : <Square size={18} />}</button>
             <div className="itemIcon"><Icon size={22} /></div>
-            <div className="itemText"><b>{it.desc}</b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · {it.code} · {it.supplier || '-'} · {it.unit}</span><small>{it.notes}</small></div>
+            <div className="itemText"><b>{it.desc}</b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · {it.code}{it.workType ? ` · ${it.workType}` : ''} · {it.unit}</span><small>{it.notes}</small></div>
             <div className="price"><b>{fmt(itemTotal(it), cur)}</b>
               <div className="priceActions"><button onClick={() => add(it)}><Plus size={16} /> הוסף</button>
               <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button>
@@ -982,7 +994,7 @@ function BoqApp() {
         <div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDiscArr.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total, cur)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div>
         <div className="box"><h3>סיכום מסחרי</h3><Line l="עלות ישירה" v={totals.direct} c={cur} /><Line l={`ניהול`} v={totals.management} c={cur} /><Line l={`בלתי צפוי`} v={totals.contingency} c={cur} /><Line l={`הנחה`} v={-totals.discount} c={cur} /><Line l={`רווח`} v={totals.profit} c={cur} />{showVat && <Line l={`מע"מ ${VAT_RATE * 100}%`} v={vatAmount} c={cur} />}<div className="grand"><span>סה״כ אומדן</span><b>{fmt(grandTotal, cur)}</b>{project.currency !== 'ILS' && <small>≈ {fmt(totals.totalConverted)} ₪</small>}</div></div>
       </div>
-      <table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>ספק</th><th>כמות</th><th>יחידה</th><th>חומרים</th><th>עבודה</th><th>תכנון</th><th>תקורה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}{x.cartNote ? ` (${x.cartNote})` : ''}</td><td>{x.supplier || '-'}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(num(x.material) * x.qty, cur)}</td><td>{fmt(num(x.labor) * x.qty, cur)}</td><td>{fmt(num(x.engineering) * x.qty, cur)}</td><td>{fmt(num(x.overhead) * x.qty, cur)}</td><td>{fmt(itemTotal(x) * x.qty, cur)}</td></tr>)}</tbody></table>
+      <table><thead><tr><th>דיסציפלינה</th><th>מק״ט</th><th>תיאור</th><th>ציוד / התקנה</th><th>כמות</th><th>יחידה</th><th>חומרים</th><th>עבודה</th><th>תכנון</th><th>תקורה</th><th>סה״כ</th></tr></thead><tbody>{cart.map(x => <tr key={x.id}><td>{boqDisciplines[x.disciplineId]?.name || x.disciplineId}</td><td>{x.code}</td><td>{x.desc}{x.cartNote ? ` (${x.cartNote})` : ''}</td><td>{x.workType || '-'}</td><td>{x.qty}</td><td>{x.unit}</td><td>{fmt(num(x.material) * x.qty, cur)}</td><td>{fmt(num(x.labor) * x.qty, cur)}</td><td>{fmt(num(x.engineering) * x.qty, cur)}</td><td>{fmt(num(x.overhead) * x.qty, cur)}</td><td>{fmt(itemTotal(x) * x.qty, cur)}</td></tr>)}</tbody></table>
       <div className="disclaimer">הנתונים מיועדים לאומדן ראשוני בלבד ודורשים אישור הנדסי/מסחרי לפני שימוש מחייב.</div>
       <div className="reportBottomActions">
         <button onClick={() => setResult(false)}><Pencil size={16} /> חזור לעריכה והוסף פריטים</button>
