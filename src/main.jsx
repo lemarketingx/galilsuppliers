@@ -14,8 +14,8 @@ const PROJ_IDX = 'galil_proj_idx_v2';
 const ACTIVE_PROJ = 'galil_active_proj_v2';
 const FAV_KEY = 'galil_fav_v1';
 const LEGACY_BOQ = 'galil_boq_v5_real_sheets_disciplines';
-const VAT_RATE = 0.17;
-const COMPANY_NAME = 'שם החברה';
+const VAT_RATE = 0.18;
+const COMPANY_NAME = 'גליל הנדסה';
 const SYSTEM_TITLE = 'מערכת הנדסה ורכש';
 
 const fmt = (v, cur = 'ILS') => new Intl.NumberFormat('he-IL', { style: 'currency', currency: cur === 'USD' ? 'USD' : cur === 'EUR' ? 'EUR' : 'ILS', maximumFractionDigits: 0 }).format(Number(v) || 0);
@@ -571,8 +571,11 @@ function BoqApp() {
     const meta = { id, name: 'פרויקט חדש', status: 'טיוטה', updatedAt: new Date().toISOString() };
     const idx = [...loadIdx(), meta]; saveIdx(idx); setProjects(idx);
     setActiveId(id); localStorage.setItem(ACTIVE_PROJ, id);
-    applyState(null); setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines);
+    setItems(sampleItems); setBoqDisciplines(defaultBoqDisciplines); setCart([]);
     setProject({ name: 'פרויקט חדש', customer: '', estimator: '', currency: 'ILS', status: 'טיוטה', exchangeRate: 1 });
+    setPercent({ management: 7, contingency: 12, profit: 10, discount: 0 });
+    setDiscMarkup({}); setAttachments([]); setVersions([]); setResult(false);
+    setDisc('all'); setQuery(''); setSelected(new Set()); setExpandedCart(new Set());
     setStatus('נוצר פרויקט חדש.');
   };
   const switchProject = id => {

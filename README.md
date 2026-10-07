@@ -1,4 +1,4 @@
-# Galil Engineering Suite V5
+# Galil Engineering Suite V5.1
 
 כולל:
 - שתי לשוניות: מחירון / BOQ ומאגר ספקים
@@ -11,12 +11,38 @@
 - מאגר ספקים עם העלאת Excel, חיפוש, דירוג, מחיקה וסיווג ידני
 
 ## הפעלה
-npm install
+
+```bash
+npm ci
 npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+תוצר הפריסה נמצא בתיקיית `dist` וניתן לפרסם אותו ב-Vercel, IIS, Nginx או Apache.
 
 ## פריסה ב-Vercel
-Upload / Import project ואז Build command:
+
+Build command:
+
+```bash
 npm run build
+```
 
 Output:
+
+```text
 dist
+```
+
+## פריסה לשרת פנימי
+
+ראו [SERVER_DEPLOYMENT.md](SERVER_DEPLOYMENT.md). קיימים גם `Dockerfile` והגדרת Nginx מוכנה.
+
+## אחסון נתונים
+
+בגרסה הנוכחית הנתונים נשמרים בדפדפן המקומי בלבד. אין עדיין מסד נתונים מרכזי, משתמשים, הרשאות או גיבוי שרת.
