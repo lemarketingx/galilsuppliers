@@ -8,6 +8,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
 import './brand.css';
 import Splash from './splash.jsx';
+import { List, LayoutGrid, Rocket } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -311,6 +312,14 @@ function StorageBanner() {
 const STATUS_TINT = { 'טיוטה': { bg: '#f1f5f9', fg: '#334155' }, 'בבדיקה': { bg: '#fef3c7', fg: '#92400e' }, 'מאושר': { bg: '#dcfce7', fg: '#166534' }, 'נשלח': { bg: '#ede9fe', fg: '#4c1d95' } };
 const statusStyle = s => { const t = STATUS_TINT[s] || STATUS_TINT['טיוטה']; return { background: t.bg, color: t.fg }; };
 
+function Hl({ text, q }) {
+  const s = String(text ?? ''); const needle = String(q || '').trim();
+  if (!needle) return s;
+  const i = s.toLowerCase().indexOf(needle.toLowerCase());
+  if (i < 0) return s;
+  return <>{s.slice(0, i)}<mark>{s.slice(i, i + needle.length)}</mark>{s.slice(i + needle.length)}</>;
+}
+
 /* ====== SHELL ====== */
 function Shell() {
   const [tab, setTab] = useState('dashboard');
@@ -365,6 +374,14 @@ function Dashboard({ onNavigate }) {
       <p>סקירה כללית של פרויקטים, ספקים ונתונים עדכניים</p>
     </section>
 
+    {totalProjects === 0 && <section className="firstSteps">
+      <h3><Rocket size={20} /> צעדים ראשונים</h3>
+      <div className="firstStepsGrid">
+        <button onClick={() => onNavigate('boq', 'setup')}><b>1</b><span>טוענים מחירון מ־Excel</span><small>כל לשונית בקובץ הופכת לדיסציפלינה</small></button>
+        <button onClick={() => onNavigate('boq', 'new')}><b>2</b><span>פותחים פרויקט ובונים אומדן</span><small>מוסיפים פריטים לסל ומחשבים</small></button>
+        <button onClick={() => onNavigate('suppliers', 'add')}><b>3</b><span>מוסיפים ספקים למאגר</span><small>ידנית או מקובץ Excel</small></button>
+      </div>
+    </section>}
     <section className="dashStats">
       <div className="dashStat" onClick={() => onNavigate('boq')}><Package size={28} /><b>{totalProjects}</b><span>פרויקטים</span></div>
       <div className="dashStat" onClick={() => onNavigate('suppliers')}><Users size={28} /><b>{totalSuppliers}</b><span>ספקים במאגר</span></div>
@@ -439,6 +456,9 @@ function BoqApp({ intent }) {
 
   // #7 Sort
   const [sortMode, setSortMode] = useState('default');
+  const [view, setView] = useState(() => { try { return localStorage.getItem('galil_catalog_view') || 'cards'; } catch { return 'cards'; } });
+  const changeView = v => { setView(v); try { localStorage.setItem('galil_catalog_view', v); } catch {} };
+  const [verNote, setVerNote] = useState('');
 
   // #8 Favorites
   const [favorites, setFavorites] = useState(new Set());
@@ -625,9 +645,10 @@ function BoqApp({ intent }) {
 
   // Save manual + version snapshot
   const saveManual = () => {
-    const snap = { id: uid('ver'), savedAt: new Date().toISOString(), totalSnapshot: totals.total, cartCount: cart.length };
+    const snap = { id: uid('ver'), savedAt: new Date().toISOString(), totalSnapshot: totals.total, cartCount: cart.length, note: verNote.trim() };
     setVersions(prev => [...prev.slice(-9), snap]);
-    setStatus('הפרויקט נשמר.');
+    setVerNote('');
+    setStatus('הפרויקט נשמר.'); toast(`נשמרה גרסה ${versions.length + 1}${snap.note ? `: ${snap.note}` : ''}`);
   };
   saveManualRef.current = saveManual;
 
@@ -750,6 +771,7 @@ function BoqApp({ intent }) {
     setPdfPreview(null);
   };
 
+  const discCounts = useMemo(() => { const c = {}; let all = 0; items.forEach(x => { if (`${x.desc} ${x.code} ${x.supplier || ''} ${x.notes}`.toLowerCase().includes(query.toLowerCase()) && (!favOnly || favorites.has(x.code))) { c[x.disciplineId] = (c[x.disciplineId] || 0) + 1; all++; } }); c.__all = all; return c; }, [items, query, favOnly, favorites]);
   const vatAmount = showVat ? totals.total * VAT_RATE : 0;
   const grandTotal = totals.total + vatAmount;
   const cur = project.currency;
@@ -863,15 +885,19 @@ function BoqApp({ intent }) {
         <div className="catalogTop">
           <div><h2><Calculator /> מחירון פריטים ({filtered.length})</h2></div>
           <div className="catalogActions">
-            <div className="search"><Search size={18} /><input ref={searchRef} value={query} onChange={e => setQuery(e.target.value)} placeholder="חיפוש פריט / ספק / מק״ט (Ctrl+F)" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div>
+            <div className="search"><Search size={18} /><input ref={searchRef} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && filtered.length === 1) { add(filtered[0]); toast(`נוסף לסל: ${filtered[0].desc}`); } }} placeholder="חיפוש פריט / ספק / מק״ט (Ctrl+F)" />{query && <button className="clearBtn" onClick={() => setQuery('')}><X size={16} /></button>}</div>
             <select className="sortSelect" value={sortMode} onChange={e => setSortMode(e.target.value)} title="מיון">
               <option value="default">ברירת מחדל</option><option value="price-asc">מחיר: נמוך לגבוה</option><option value="price-desc">מחיר: גבוה לנמוך</option><option value="name">לפי שם</option>
             </select>
+            <div className="viewToggle" role="group" aria-label="תצוגת מחירון">
+              <button className={view === 'cards' ? 'on' : ''} onClick={() => changeView('cards')} title="תצוגת כרטיסים" aria-pressed={view === 'cards'}><LayoutGrid size={16} /></button>
+              <button className={view === 'table' ? 'on' : ''} onClick={() => changeView('table')} title="תצוגת טבלה" aria-pressed={view === 'table'}><List size={16} /></button>
+            </div>
           </div>
         </div>
         <div className="chips">
-          <button className={disc === 'all' ? 'selected' : ''} onClick={() => setDisc('all')}>הכל</button>
-          {Object.entries(boqDisciplines).map(([id, d]) => <button key={id} className={disc === id ? 'selected' : ''} onClick={() => setDisc(id)}>{d.name}</button>)}
+          <button className={disc === 'all' ? 'selected' : ''} onClick={() => setDisc('all')}>הכל <i className="chipCount">{discCounts.__all || 0}</i></button>
+          {Object.entries(boqDisciplines).map(([id, d]) => <button key={id} className={(disc === id ? 'selected' : '') + (discCounts[id] ? '' : ' chipEmpty')} onClick={() => setDisc(id)}>{d.name} <i className="chipCount">{discCounts[id] || 0}</i></button>)}
           <button className={favOnly ? 'selected' : ''} onClick={() => setFavOnly(!favOnly)} title="מועדפים"><Star size={14} /></button>
         </div>
         <div className="disciplineManage">
@@ -898,10 +924,25 @@ function BoqApp({ intent }) {
 
         <div className="items">
           {filtered.length === 0 && <div className="emptyResults"><b>לא נמצאו פריטים</b><p>{query ? `אין תוצאות עבור "${query}"` : 'אין פריטים בדיסציפלינה זו'}</p></div>}
-          {filtered.map((it, idx) => { const Icon = getIcon(boqDisciplines[it.disciplineId]?.icon); const itemId = it.id || it.code; return <div className={'item' + (selected.has(itemId) ? ' itemSelected' : '')} key={`${itemId}-${idx}`}>
+          {view === 'table' && filtered.length > 0 && <table className="catTable">
+            <thead><tr><th></th><th>מק״ט</th><th>תיאור</th><th>דיסציפלינה</th><th>ספק</th><th>יחידה</th><th>מחיר</th><th></th></tr></thead>
+            <tbody>{filtered.map((it, idx) => { const itemId = it.id || it.code; return <tr key={`${itemId}-${idx}`} className={selected.has(itemId) ? 'rowSelected' : ''}>
+              <td><button className="itemCheck" onClick={() => toggleSelect(itemId)} aria-label="בחירה">{selected.has(itemId) ? <CheckSquare size={16} /> : <Square size={16} />}</button></td>
+              <td className="mono"><Hl text={it.code} q={query} /></td>
+              <td className="descCell"><Hl text={it.desc} q={query} /></td>
+              <td>{boqDisciplines[it.disciplineId]?.name || it.disciplineId}</td>
+              <td><Hl text={it.supplier || '-'} q={query} /></td>
+              <td>{it.unit}</td>
+              <td className="priceCell">{fmt(itemTotal(it), cur)}</td>
+              <td className="rowActions"><button className="addMini" onClick={() => add(it)} title="הוסף לסל"><Plus size={14} /> הוסף</button>
+                <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} title="מועדף" onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button>
+                <button className="itemActionBtn dangerMini" title="מחק" onClick={() => removeItem(it)}><Trash2 size={14} /></button></td>
+            </tr>; })}</tbody>
+          </table>}
+          {view === 'cards' && filtered.map((it, idx) => { const Icon = getIcon(boqDisciplines[it.disciplineId]?.icon); const itemId = it.id || it.code; return <div className={'item' + (selected.has(itemId) ? ' itemSelected' : '')} key={`${itemId}-${idx}`}>
             <button className="itemCheck" onClick={() => toggleSelect(itemId)}>{selected.has(itemId) ? <CheckSquare size={18} /> : <Square size={18} />}</button>
             <div className="itemIcon"><Icon size={22} /></div>
-            <div className="itemText"><b>{it.desc}</b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · {it.code} · {it.supplier || '-'} · {it.unit}</span><small>{it.notes}</small></div>
+            <div className="itemText"><b><Hl text={it.desc} q={query} /></b><span>{boqDisciplines[it.disciplineId]?.name || it.disciplineId} · <Hl text={it.code} q={query} /> · <Hl text={it.supplier || '-'} q={query} /> · {it.unit}</span><small>{it.notes}</small></div>
             <div className="price"><b>{fmt(itemTotal(it), cur)}</b>
               <div className="priceActions"><button onClick={() => add(it)}><Plus size={16} /> הוסף</button>
               <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button>
@@ -980,6 +1021,7 @@ function BoqApp({ intent }) {
       })}</div>}
 
       <button className="calc" disabled={!cart.length} onClick={() => setResult(true)}>חשב פרויקט</button>
+      <input className="verNote" value={verNote} onChange={e => setVerNote(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveManual(); }} placeholder="הערה לגרסה (לא חובה), למשל: אחרי עדכון מחיר בטון" />
       <div className="sideBtns">
         <button onClick={saveManual}><Save size={16} /> שמור (Ctrl+S)</button>
         <button onClick={exportCSV}><Download size={16} /> Excel</button>
@@ -997,7 +1039,7 @@ function BoqApp({ intent }) {
           return <div key={v.id} className="compareLine">
             <span>#{i + 1} · {new Date(v.savedAt).toLocaleString('he-IL')}</span>
             <span>{fmt(v.totalSnapshot, cur)} {delta !== 0 && <b style={{ color: delta > 0 ? '#dc2626' : '#16a34a' }}>{delta > 0 ? '+' : ''}{fmt(delta, cur)}</b>}</span>
-            <small>{v.cartCount} פריטים</small>
+            <small>{v.cartCount} פריטים{v.note ? ` · ${v.note}` : ''}</small>
           </div>;
         })}
       </div>}

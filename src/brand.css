@@ -165,3 +165,49 @@ nav button.active { background: var(--brand); color: #fff; box-shadow: 0 8px 20p
 .rowLink:hover td { background: var(--brand-50); }
 .dashStatus { font-weight: 800; }
 .projStatus select { border-width: 1px; }
+
+/* ==========================================================
+   UX improvements, round 2
+   ========================================================== */
+.left { align-content: start; }
+.search input { margin-top: 0; }
+.search svg, .search .clearBtn { top: 50%; transform: translateY(-50%); }
+mark { background: #fde68a; color: inherit; border-radius: 4px; padding: 0 2px; }
+
+/* Discipline chips with counts */
+.chips button { gap: 8px; }
+.chipCount { font-style: normal; font-size: 12px; font-weight: 800; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(37, 8, 88, .08); }
+.chips button.selected .chipCount { background: rgba(255, 255, 255, .22); }
+.chips button.chipEmpty:not(.selected) { opacity: .55; }
+
+/* Cards / table toggle */
+.viewToggle { display: inline-flex; gap: 2px; padding: 3px; background: var(--brand-50); border: 1px solid var(--line); border-radius: 12px; flex-shrink: 0; }
+.viewToggle button { padding: 7px 9px; border-radius: 9px; background: transparent; color: #64748b; }
+.viewToggle button.on { background: var(--brand); color: #fff; }
+
+/* Compact table view of the catalogue */
+.catTable { margin: 0; font-size: 13.5px; }
+.catTable thead th { position: sticky; top: 0; z-index: 1; background: var(--brand-100); color: var(--brand); font-weight: 800; white-space: nowrap; }
+.catTable td { vertical-align: middle; padding: 8px 9px; }
+.catTable tbody tr:hover td { background: var(--brand-50); }
+.catTable tr.rowSelected td { background: var(--brand-100); }
+.catTable .descCell { font-weight: 600; min-width: 260px; }
+.catTable .mono { font-variant-numeric: tabular-nums; color: #475569; white-space: nowrap; }
+.catTable .priceCell { font-weight: 800; color: var(--brand); white-space: nowrap; }
+.catTable .rowActions { white-space: nowrap; text-align: left; }
+.catTable .rowActions button { padding: 6px 8px; margin-inline-start: 2px; }
+.catTable .addMini { background: var(--brand); color: #fff; font-size: 12.5px; padding: 6px 10px !important; }
+.catTable .itemCheck { padding: 2px !important; }
+
+/* Version note */
+.verNote { margin-top: 10px; padding: 10px 12px; font-size: 13px; }
+
+/* Dashboard first steps */
+.firstSteps { background: #fff; border: 1px dashed var(--brand-300); border-radius: 26px; padding: 22px; box-shadow: 0 12px 36px rgba(37, 8, 88, .06); }
+.firstSteps h3 { margin: 0 0 14px; color: var(--brand); display: flex; align-items: center; gap: 10px; }
+.firstStepsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.firstStepsGrid button { flex-direction: column; align-items: flex-start; gap: 4px; text-align: right; background: var(--brand-50); border: 1px solid var(--brand-200); color: var(--brand); padding: 16px 18px; border-radius: 18px; }
+.firstStepsGrid b { width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.firstStepsGrid span { font-size: 16px; font-weight: 800; }
+.firstStepsGrid small { color: #64748b; font-weight: 500; }
+@media (max-width: 1050px) { .firstStepsGrid { grid-template-columns: 1fr; } }
