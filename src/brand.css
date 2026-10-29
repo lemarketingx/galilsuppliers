@@ -1,0 +1,277 @@
+/* ==========================================================
+   Galil Group brand layer
+   Colours come from the logo: galil purple #250858 and galil grey #707070.
+   style.css reads these variables; the rules below refine key surfaces.
+   ========================================================== */
+
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/heebo-hebrew-wght-normal.woff2') format('woff2');
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/heebo-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --font: 'Heebo', Arial, Helvetica, sans-serif;
+  --brand: #250858;      /* logo purple: primary actions, headings, active states */
+  --brand-900: #17033a;  /* report / print actions */
+  --brand-600: #3a1a80;  /* hover, gradient end */
+  --brand-500: #5b3fa8;  /* focus, bars, accents */
+  --brand-300: #b4a6d8;  /* dashed borders, scrollbar hover */
+  --brand-200: #ddd5ee;  /* borders on tinted areas */
+  --brand-100: #f1edf8;  /* soft fills: chips, soft buttons, tiles */
+  --brand-50:  #f8f6fc;  /* very light washes */
+  --brand-grey: #707070; /* logo grey: company name, quiet labels */
+  --line: #e4e0ec;       /* default borders */
+  --page: #f6f5fa;       /* page background */
+}
+
+body { font-family: var(--font); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { letter-spacing: -0.01em; }
+.panel h2, .dashCard h3, .box h3 { color: var(--brand); }
+.panel h2 svg, .dashCard h3 svg, .box h3 svg { color: var(--brand-500); }
+
+/* Buttons: brand fill with a gentle hover */
+button, .fileBtn { transition: background-color .18s ease, filter .18s ease, transform .18s ease, box-shadow .18s ease; }
+button:not(:disabled):hover, .fileBtn:hover { filter: brightness(1.08); }
+button:not(:disabled):active { transform: translateY(1px); }
+.actions .fileBtn { background: #0f766e; color: #fff; }
+
+/* Header */
+.top {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 6px 24px rgba(37, 8, 88, .06);
+  padding: 16px 34px;
+}
+.brand { gap: 16px; }
+.brand .brandLogo { width: 64px; height: 64px; }
+.brand > div { border-right: 1px solid var(--line); padding-right: 16px; }
+.brand span { color: var(--brand-grey); font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.brand h1 { color: var(--brand); font-size: 28px; font-weight: 800; }
+.brand p { color: #64748b; font-weight: 500; font-size: 14px; }
+
+/* Navigation: segmented control with a filled brand tab */
+nav { background: var(--brand-50); border: 1px solid var(--line); padding: 6px; border-radius: 16px; }
+nav button { color: #475569; font-weight: 700; border-radius: 12px; padding: 10px 16px; }
+nav button:hover { background: var(--brand-100); filter: none; }
+nav button.active { background: var(--brand); color: #fff; box-shadow: 0 8px 20px rgba(37, 8, 88, .25); }
+
+/* Panels and cards */
+.panel, .dashCard, .dashQuickActions, .reportBox, .supplier { box-shadow: 0 12px 36px rgba(37, 8, 88, .06); }
+.upload, .supHero { border: 1px dashed var(--brand-300); background: linear-gradient(135deg, #fff, var(--brand-50)); }
+.cartGroupHead { background: var(--brand-50); }
+.itemIcon { background: var(--brand-100); color: var(--brand); }
+.price b { color: var(--brand); }
+.chips button { font-weight: 700; }
+.calc { background: linear-gradient(135deg, var(--brand), var(--brand-600)); box-shadow: 0 10px 24px rgba(37, 8, 88, .22); }
+.totalBox { background: var(--brand-50); border-color: var(--brand-200); }
+.totalBox b { color: var(--brand); }
+
+/* Dashboard welcome: brand banner */
+.dashWelcome {
+  background: linear-gradient(135deg, var(--brand), var(--brand-600));
+  border: 0;
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(37, 8, 88, .22);
+}
+.dashWelcome h2 { color: #fff; }
+.dashWelcome h2 svg { color: var(--brand-200); }
+.dashWelcome p { color: var(--brand-200); }
+.dashStat svg { color: var(--brand-500); }
+.dashStat b { color: var(--brand); }
+.dashStat:hover { border-color: var(--brand-200); }
+
+/* Report */
+.reportHead { border-bottom: 2px solid var(--brand-100); }
+.reportHead h2 { color: var(--brand); }
+.reportBox th, .dashTable th { background: var(--brand-100); color: var(--brand); }
+.grand { background: linear-gradient(135deg, var(--brand), var(--brand-600)); }
+.bar em { background: var(--brand-500); }
+.kpi.big b { color: var(--brand); }
+
+/* Suppliers */
+.supplierTop span { background: var(--brand-100); color: var(--brand); }
+.stat b { color: var(--brand); }
+.supplier:hover { border-color: var(--brand-200); }
+
+/* Footer */
+.appFooter { color: var(--brand-grey); border-top: 1px solid var(--line); background: #fff; }
+
+@media print {
+  .printCover h1 { color: var(--brand); }
+  .reportHead h2 { color: var(--brand); }
+}
+@media (max-width: 1050px) {
+  .brand > div { border-right: 0; padding-right: 0; }
+}
+
+/* ==========================================================
+   UX improvements
+   ========================================================== */
+.price b, .totalBox b, .grand b, .kpi b, .dashStat b, .stat b, td, .cartQty strong, .cartGroupHead span { font-variant-numeric: tabular-nums; }
+
+/* Storage notice */
+.storageBanner { display: flex; align-items: center; gap: 10px; max-width: 1450px; margin: 14px auto 0; padding: 10px 16px; background: var(--brand-50); border: 1px solid var(--brand-200); border-radius: 14px; color: var(--brand); font-size: 14px; font-weight: 600; }
+.storageBanner span { flex: 1; }
+.storageBanner button { background: transparent; color: var(--brand-grey); padding: 4px; }
+@media (max-width: 1450px) { .storageBanner { margin: 14px 24px 0; } }
+
+/* Toasts */
+.toasts { position: fixed; bottom: 24px; left: 24px; display: grid; gap: 10px; z-index: 200; }
+.toast { display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 460px; background: var(--brand); color: #fff; border-radius: 14px; padding: 12px 16px; box-shadow: 0 18px 40px rgba(23, 3, 58, .3); font-weight: 600; animation: toastIn .22s ease; }
+.toast span { flex: 1; }
+.toast button { background: rgba(255, 255, 255, .14); color: #fff; padding: 6px 12px; border-radius: 10px; font-size: 13px; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Import confirmation modal */
+.uxOverlay { position: fixed; inset: 0; background: rgba(23, 3, 58, .45); display: flex; align-items: center; justify-content: center; z-index: 150; padding: 16px; }
+.uxModal { background: #fff; border-radius: 24px; padding: 28px; width: 100%; max-width: 480px; box-shadow: 0 30px 80px rgba(23, 3, 58, .35); text-align: center; }
+.uxModalIcon { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 16px; background: var(--brand-100); color: var(--brand); display: flex; align-items: center; justify-content: center; }
+.uxModal h3 { margin: 0 0 8px; color: var(--brand); font-size: 22px; }
+.uxModal p { margin: 0 0 20px; color: #475569; line-height: 1.6; }
+.uxModalActions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.uxPrimary { background: var(--brand); color: #fff; }
+.uxSecondary { background: var(--brand-100); color: var(--brand); }
+.uxGhost { background: #f1f5f9; color: #334155; }
+
+/* Collapsible project setup */
+.setupBar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 16px 20px; box-shadow: 0 12px 36px rgba(37, 8, 88, .06); }
+.setupInfo b { display: block; font-size: 19px; color: var(--brand); }
+.setupInfo > span { color: #64748b; font-size: 14px; }
+.setupChips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.setupChips em { font-style: normal; background: var(--brand-50); border: 1px solid var(--brand-200); color: var(--brand); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.setupActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.setupActions button { padding: 9px 14px; font-size: 14px; }
+
+/* Cart summary pinned at the top of the cart */
+.cartSummary { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 12px 14px; border-radius: 16px; background: linear-gradient(135deg, var(--brand), var(--brand-600)); color: #fff; }
+.cartSummary span { display: block; font-size: 12px; color: var(--brand-200); font-weight: 600; }
+.cartSummary b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.cartSummary button { background: #fff; color: var(--brand); padding: 9px 14px; font-size: 14px; }
+
+/* Dashboard */
+.rowLink { cursor: pointer; transition: background .15s ease; }
+.rowLink:hover td { background: var(--brand-50); }
+.dashStatus { font-weight: 800; }
+.projStatus select { border-width: 1px; }
+
+/* ==========================================================
+   UX improvements, round 2
+   ========================================================== */
+.left { align-content: start; }
+.search input { margin-top: 0; }
+.search svg, .search .clearBtn { top: 50%; transform: translateY(-50%); }
+mark { background: #fde68a; color: inherit; border-radius: 4px; padding: 0 2px; }
+
+/* Discipline chips with counts */
+.chips button { gap: 8px; }
+.chipCount { font-style: normal; font-size: 12px; font-weight: 800; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: rgba(37, 8, 88, .08); }
+.chips button.selected .chipCount { background: rgba(255, 255, 255, .22); }
+.chips button.chipEmpty:not(.selected) { opacity: .55; }
+
+/* Cards / table toggle */
+.viewToggle { display: inline-flex; gap: 2px; padding: 3px; background: var(--brand-50); border: 1px solid var(--line); border-radius: 12px; flex-shrink: 0; }
+.viewToggle button { padding: 7px 9px; border-radius: 9px; background: transparent; color: #64748b; }
+.viewToggle button.on { background: var(--brand); color: #fff; }
+
+/* Compact table view of the catalogue */
+.catTable { margin: 0; font-size: 13.5px; }
+.catTable thead th { position: sticky; top: 0; z-index: 1; background: var(--brand-100); color: var(--brand); font-weight: 800; white-space: nowrap; }
+.catTable td { vertical-align: middle; padding: 8px 9px; }
+.catTable tbody tr:hover td { background: var(--brand-50); }
+.catTable tr.rowSelected td { background: var(--brand-100); }
+.catTable .descCell { font-weight: 600; min-width: 260px; }
+.catTable .mono { font-variant-numeric: tabular-nums; color: #475569; white-space: nowrap; }
+.catTable .priceCell { font-weight: 800; color: var(--brand); white-space: nowrap; }
+.catTable .rowActions { white-space: nowrap; text-align: left; }
+.catTable .rowActions button { padding: 6px 8px; margin-inline-start: 2px; }
+.catTable .addMini { background: var(--brand); color: #fff; font-size: 12.5px; padding: 6px 10px !important; }
+.catTable .itemCheck { padding: 2px !important; }
+
+/* Version note */
+.verNote { margin-top: 10px; padding: 10px 12px; font-size: 13px; }
+
+/* Dashboard first steps */
+.firstSteps { background: #fff; border: 1px dashed var(--brand-300); border-radius: 26px; padding: 22px; box-shadow: 0 12px 36px rgba(37, 8, 88, .06); }
+.firstSteps h3 { margin: 0 0 14px; color: var(--brand); display: flex; align-items: center; gap: 10px; }
+.firstStepsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.firstStepsGrid button { flex-direction: column; align-items: flex-start; gap: 4px; text-align: right; background: var(--brand-50); border: 1px solid var(--brand-200); color: var(--brand); padding: 16px 18px; border-radius: 18px; }
+.firstStepsGrid b { width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.firstStepsGrid span { font-size: 16px; font-weight: 800; }
+.firstStepsGrid small { color: #64748b; font-weight: 500; }
+@media (max-width: 1050px) { .firstStepsGrid { grid-template-columns: 1fr; } }
+
+/* ==========================================================
+   New project wizard + dashboard as the starting point
+   ========================================================== */
+.openProjectBtn { background: var(--brand) !important; color: #fff !important; padding: 8px 14px !important; font-size: 14px; }
+.wizOverlay { position: fixed; inset: 0; z-index: 160; background: rgba(23, 3, 58, .5); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 16px; animation: wizFade .2s ease; }
+.wizCard { width: 100%; max-width: 720px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border-radius: 26px; box-shadow: 0 40px 90px rgba(23, 3, 58, .4); overflow: hidden; animation: wizRise .28s cubic-bezier(.2, .8, .2, 1); }
+.wizHead { display: flex; justify-content: space-between; align-items: flex-start; padding: 24px 28px 8px; }
+.wizHead span { color: var(--brand-grey); font-weight: 700; font-size: 14px; }
+.wizHead h2 { margin: 2px 0 0; color: var(--brand); font-size: 28px; }
+.wizClose { background: #f1f5f9; color: #64748b; padding: 8px; border-radius: 12px; }
+.wizSteps { list-style: none; display: flex; gap: 8px; margin: 12px 28px 4px; padding: 0; }
+.wizSteps li { flex: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--brand-50); color: #64748b; font-weight: 700; font-size: 14px; border: 1px solid var(--line); }
+.wizSteps li b { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--brand-200); color: var(--brand); font-size: 13px; }
+.wizSteps li.on { background: var(--brand-100); border-color: var(--brand-200); color: var(--brand); }
+.wizSteps li.on b { background: var(--brand); color: #fff; border-color: var(--brand); }
+.wizSteps li.done b { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.wizSteps li.wizStepEnd { background: transparent; border-style: dashed; }
+.wizBody { padding: 20px 28px; overflow: auto; }
+.wizGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.wizWide { grid-column: 1 / -1; }
+.wizGrid input.invalid { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+.wizErr { display: block; color: #b91c1c; font-style: normal; font-size: 13px; margin-top: 6px; }
+.wizSeg { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.wizSeg button { background: #f1f5f9; color: #334155; padding: 9px 16px; font-weight: 700; }
+.wizSeg button.on { background: var(--brand); color: #fff; }
+.wizCheck { display: flex; align-items: center; gap: 10px; color: var(--brand); font-size: 15px; }
+.wizCheck input { width: auto; margin: 0; }
+.wizHint { color: #64748b; font-size: 14px; font-weight: 500; margin: 0 0 4px; }
+.wizSummary { margin-top: 16px; display: grid; gap: 6px; background: #f8fafc; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; font-size: 14px; }
+.wizSummary b { color: var(--brand); margin-bottom: 2px; }
+.wizSummary span { display: flex; gap: 10px; }
+.wizSummary i { font-style: normal; color: #64748b; min-width: 64px; font-weight: 700; }
+.wizFoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 28px 22px; border-top: 1px solid var(--line); background: #fff; }
+.wizNav { display: flex; gap: 8px; }
+.wizFoot button { padding: 11px 22px; font-size: 15px; }
+.wizFoot button:disabled { opacity: .5; cursor: not-allowed; }
+@keyframes wizFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wizRise { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* Dashboard hero: where every estimate starts */
+.dashHero { text-align: right; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 22px 28px; padding: 34px 36px; }
+.dashHero h2 { justify-content: flex-start; font-size: 30px; margin: 0 0 8px; }
+.dashHero p { font-size: 17px; }
+.heroActions { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.heroPrimary { background: #fff; color: var(--brand); font-size: 19px; padding: 16px 30px; border-radius: 16px; box-shadow: 0 14px 30px rgba(10, 0, 30, .3); }
+.heroPrimary:hover { transform: translateY(-1px); }
+.heroSecondary { background: rgba(255, 255, 255, .12); color: #fff; border: 1px solid rgba(255, 255, 255, .28); font-weight: 600; font-size: 14px; padding: 10px 16px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.heroSteps { grid-column: 1 / -1; list-style: none; margin: 0; padding: 16px 0 0; display: flex; gap: 10px; border-top: 1px solid rgba(255, 255, 255, .18); }
+.heroSteps li { flex: 1; display: flex; align-items: center; gap: 10px; color: var(--brand-200); font-weight: 600; font-size: 15px; }
+.heroSteps li b { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: rgba(255, 255, 255, .16); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.heroSteps li:first-child { color: #fff; }
+.heroSteps li:first-child b { background: #fff; color: var(--brand); }
+.dashActions { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 1050px) {
+  .dashHero { grid-template-columns: 1fr; }
+  .heroSteps { flex-direction: column; }
+  .dashActions { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 650px) {
+  .wizGrid { grid-template-columns: 1fr; }
+  .wizSteps li span { display: none; }
+  .dashActions { grid-template-columns: 1fr; }
+}
