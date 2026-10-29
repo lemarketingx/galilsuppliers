@@ -115,3 +115,53 @@ nav button.active { background: var(--brand); color: #fff; box-shadow: 0 8px 20p
 @media (max-width: 1050px) {
   .brand > div { border-right: 0; padding-right: 0; }
 }
+
+/* ==========================================================
+   UX improvements
+   ========================================================== */
+.price b, .totalBox b, .grand b, .kpi b, .dashStat b, .stat b, td, .cartQty strong, .cartGroupHead span { font-variant-numeric: tabular-nums; }
+
+/* Storage notice */
+.storageBanner { display: flex; align-items: center; gap: 10px; max-width: 1450px; margin: 14px auto 0; padding: 10px 16px; background: var(--brand-50); border: 1px solid var(--brand-200); border-radius: 14px; color: var(--brand); font-size: 14px; font-weight: 600; }
+.storageBanner span { flex: 1; }
+.storageBanner button { background: transparent; color: var(--brand-grey); padding: 4px; }
+@media (max-width: 1450px) { .storageBanner { margin: 14px 24px 0; } }
+
+/* Toasts */
+.toasts { position: fixed; bottom: 24px; left: 24px; display: grid; gap: 10px; z-index: 200; }
+.toast { display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 460px; background: var(--brand); color: #fff; border-radius: 14px; padding: 12px 16px; box-shadow: 0 18px 40px rgba(23, 3, 58, .3); font-weight: 600; animation: toastIn .22s ease; }
+.toast span { flex: 1; }
+.toast button { background: rgba(255, 255, 255, .14); color: #fff; padding: 6px 12px; border-radius: 10px; font-size: 13px; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Import confirmation modal */
+.uxOverlay { position: fixed; inset: 0; background: rgba(23, 3, 58, .45); display: flex; align-items: center; justify-content: center; z-index: 150; padding: 16px; }
+.uxModal { background: #fff; border-radius: 24px; padding: 28px; width: 100%; max-width: 480px; box-shadow: 0 30px 80px rgba(23, 3, 58, .35); text-align: center; }
+.uxModalIcon { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 16px; background: var(--brand-100); color: var(--brand); display: flex; align-items: center; justify-content: center; }
+.uxModal h3 { margin: 0 0 8px; color: var(--brand); font-size: 22px; }
+.uxModal p { margin: 0 0 20px; color: #475569; line-height: 1.6; }
+.uxModalActions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.uxPrimary { background: var(--brand); color: #fff; }
+.uxSecondary { background: var(--brand-100); color: var(--brand); }
+.uxGhost { background: #f1f5f9; color: #334155; }
+
+/* Collapsible project setup */
+.setupBar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 16px 20px; box-shadow: 0 12px 36px rgba(37, 8, 88, .06); }
+.setupInfo b { display: block; font-size: 19px; color: var(--brand); }
+.setupInfo > span { color: #64748b; font-size: 14px; }
+.setupChips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.setupChips em { font-style: normal; background: var(--brand-50); border: 1px solid var(--brand-200); color: var(--brand); border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.setupActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.setupActions button { padding: 9px 14px; font-size: 14px; }
+
+/* Cart summary pinned at the top of the cart */
+.cartSummary { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 12px 14px; border-radius: 16px; background: linear-gradient(135deg, var(--brand), var(--brand-600)); color: #fff; }
+.cartSummary span { display: block; font-size: 12px; color: var(--brand-200); font-weight: 600; }
+.cartSummary b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.cartSummary button { background: #fff; color: var(--brand); padding: 9px 14px; font-size: 14px; }
+
+/* Dashboard */
+.rowLink { cursor: pointer; transition: background .15s ease; }
+.rowLink:hover td { background: var(--brand-50); }
+.dashStatus { font-weight: 800; }
+.projStatus select { border-width: 1px; }

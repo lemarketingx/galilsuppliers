@@ -268,13 +268,59 @@ const delProj = id => localStorage.removeItem(projKey(id));
 
 const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentation: 'מכשור ובקרה', civil: 'הנדסה אזרחית', hvac: 'HVAC ומיזוג', fire: 'בטיחות וכיבוי אש' };
 
+/* ====== UI HELPERS: toasts with undo, confirm modal ====== */
+const toastBus = new EventTarget();
+function toast(message, undo) { toastBus.dispatchEvent(new CustomEvent('toast', { detail: { id: uid('t'), message, undo } })); }
+function Toasts() {
+  const [list, setList] = useState([]);
+  useEffect(() => {
+    const h = e => {
+      const t = e.detail;
+      setList(prev => [...prev.slice(-2), t]);
+      setTimeout(() => setList(prev => prev.filter(x => x.id !== t.id)), 6000);
+    };
+    toastBus.addEventListener('toast', h);
+    return () => toastBus.removeEventListener('toast', h);
+  }, []);
+  return <div className="toasts" aria-live="polite">{list.map(t => <div className="toast" key={t.id}>
+    <CheckCircle2 size={18} /><span>{t.message}</span>
+    {t.undo && <button onClick={() => { t.undo(); setList(prev => prev.filter(x => x.id !== t.id)); }}><RotateCcw size={14} /> בטל</button>}
+  </div>)}</div>;
+}
+function ImportModal({ title, text, onReplace, onAdd, onCancel }) {
+  return <div className="uxOverlay" onClick={onCancel}>
+    <div className="uxModal" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+      <div className="uxModalIcon"><UploadCloud size={26} /></div>
+      <h3>{title}</h3>
+      <p>{text}</p>
+      <div className="uxModalActions">
+        <button className="uxPrimary" onClick={onAdd}><Plus size={16} /> הוסף לקיים</button>
+        <button className="uxSecondary" onClick={onReplace}><RotateCcw size={16} /> החלף את הקיים</button>
+        <button className="uxGhost" onClick={onCancel}>ביטול</button>
+      </div>
+    </div>
+  </div>;
+}
+function StorageBanner() {
+  const [open, setOpen] = useState(() => { try { return sessionStorage.getItem('galil_storage_banner') !== 'closed'; } catch { return true; } });
+  if (!open) return null;
+  return <div className="storageBanner"><Database size={16} /><span>הנתונים נשמרים בדפדפן של מחשב זה בלבד. מומלץ לייצא לקבצים (Excel / PDF) באופן קבוע.</span>
+    <button title="סגירה" onClick={() => { setOpen(false); try { sessionStorage.setItem('galil_storage_banner', 'closed'); } catch {} }}><X size={14} /></button></div>;
+}
+const STATUS_TINT = { 'טיוטה': { bg: '#f1f5f9', fg: '#334155' }, 'בבדיקה': { bg: '#fef3c7', fg: '#92400e' }, 'מאושר': { bg: '#dcfce7', fg: '#166534' }, 'נשלח': { bg: '#ede9fe', fg: '#4c1d95' } };
+const statusStyle = s => { const t = STATUS_TINT[s] || STATUS_TINT['טיוטה']; return { background: t.bg, color: t.fg }; };
+
 /* ====== SHELL ====== */
 function Shell() {
   const [tab, setTab] = useState('dashboard');
+  const [intent, setIntent] = useState(null);
+  const go = (t, i = null) => { setIntent(i); setTab(t); window.scrollTo({ top: 0 }); };
   return <div className="app" dir="rtl">
     <header className="top"><div className="brand"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
-    <nav><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}><LayoutDashboard size={18} /> דשבורד</button><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
-    {tab === 'dashboard' ? <Dashboard onNavigate={setTab} /> : tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
+    <nav><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /> דשבורד</button><button className={tab === 'boq' ? 'active' : ''} onClick={() => go('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => go('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
+    <StorageBanner />
+    {tab === 'dashboard' ? <Dashboard onNavigate={go} /> : tab === 'boq' ? <BoqApp key={'boq-' + (intent || '')} intent={intent} /> : <SuppliersApp intent={intent} />}
+    <Toasts />
     <footer className="appFooter">© {new Date().getFullYear()} {COMPANY_NAME} · {SYSTEM_TITLE}</footer>
   </div>;
 }
@@ -328,10 +374,10 @@ function Dashboard({ onNavigate }) {
         {recentProjects.length === 0 ? <p className="dashEmpty">אין פרויקטים עדיין. <button onClick={() => onNavigate('boq')}>צור פרויקט ראשון</button></p> :
         <div className="dashTable">
           <table><thead><tr><th>שם</th><th>לקוח</th><th>סטטוס</th><th>פריטים בסל</th><th>סה״כ</th><th>עדכון</th></tr></thead>
-          <tbody>{recentProjects.map(p => <tr key={p.id}>
+          <tbody>{recentProjects.map(p => <tr key={p.id} className="rowLink" title="פתיחת הפרויקט" onClick={() => { localStorage.setItem(ACTIVE_PROJ, p.id); onNavigate('boq'); }}>
             <td><b>{p.name}</b></td>
             <td>{p.customer || '-'}</td>
-            <td><span className="dashStatus" style={{ background: STATUS_COLORS[p.status] || '#94a3b8' }}>{p.status || 'טיוטה'}</span></td>
+            <td><span className="dashStatus" style={statusStyle(p.status)}>{p.status || 'טיוטה'}</span></td>
             <td>{p.cartLen}</td>
             <td>{fmt(p.total, p.currency)}</td>
             <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('he-IL') : '-'}</td>
@@ -354,19 +400,21 @@ function Dashboard({ onNavigate }) {
     <section className="dashQuickActions">
       <h3>פעולות מהירות</h3>
       <div className="dashActions">
-        <button onClick={() => onNavigate('boq')}><Calculator size={20} /> בנה אומדן חדש</button>
-        <button onClick={() => onNavigate('suppliers')}><UserPlus size={20} /> הוסף ספק</button>
-        <button onClick={() => onNavigate('boq')}><UploadCloud size={20} /> העלה Excel</button>
-        <button onClick={() => onNavigate('boq')}><FileSearch size={20} /> העלה PDF</button>
+        <button onClick={() => onNavigate('boq', 'new')}><Calculator size={20} /> בנה אומדן חדש</button>
+        <button onClick={() => onNavigate('suppliers', 'add')}><UserPlus size={20} /> הוסף ספק</button>
+        <button onClick={() => onNavigate('boq', 'setup')}><UploadCloud size={20} /> העלה Excel</button>
+        <button onClick={() => onNavigate('boq', 'setup')}><FileSearch size={20} /> העלה PDF</button>
       </div>
     </section>
   </main>;
 }
 
 /* ====== BOQ APP ====== */
-function BoqApp() {
+function BoqApp({ intent }) {
   const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null); const saveManualRef = useRef(null);
   const [items, setItems] = useState(sampleItems);
+  const [showSetup, setShowSetup] = useState(intent === 'setup');
+  const [pendingImport, setPendingImport] = useState(null);
   const [boqDisciplines, setBoqDisciplines] = useState(defaultBoqDisciplines);
   const [newDiscipline, setNewDiscipline] = useState('');
   const [cart, setCart] = useState([]);
@@ -471,6 +519,10 @@ function BoqApp() {
     return () => clearTimeout(timer);
   }, [items, boqDisciplines, cart, project, percent, discMarkup, attachments, versions, loaded, activeId]);
 
+  // Dashboard intents
+  const intentDone = useRef(false);
+  useEffect(() => { if (!loaded || intentDone.current) return; intentDone.current = true; if (intent === 'new') { newProject(); setShowSetup(true); } }, [loaded]);
+
   // Save favorites
   useEffect(() => { if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }, [favorites, loaded]);
 
@@ -499,7 +551,17 @@ function BoqApp() {
   const toggleSelect = id => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selectAll = () => { if (selected.size === filtered.length) setSelected(new Set()); else setSelected(new Set(filtered.map(x => x.id || x.code))); };
 
-  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const all = []; const newMap = makeDisciplineMapFromSheetNames(wb.SheetNames, defaultBoqDisciplines); wb.SheetNames.forEach(sheetName => { const ws = wb.Sheets[sheetName]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }); rows.forEach((row, i) => { const mapped = mapBoqRow(row, all.length + i, sheetName); if (mapped.desc !== 'פריט ללא תיאור' || itemTotal(mapped) > 0) all.push(mapped); }); }); setBoqDisciplines(newMap); setItems(all.length ? all : sampleItems); setDisc('all'); setResult(false); setSelected(new Set()); setStatus(`נטענו ${all.length.toLocaleString('he-IL')} פריטים מתוך ${wb.SheetNames.length} לשוניות.`); } catch (err) { console.error(err); setStatus('שגיאה בקריאת הקובץ.'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
+  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const all = []; const newMap = makeDisciplineMapFromSheetNames(wb.SheetNames, defaultBoqDisciplines); wb.SheetNames.forEach(sheetName => { const ws = wb.Sheets[sheetName]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }); rows.forEach((row, i) => { const mapped = mapBoqRow(row, all.length + i, sheetName); if (mapped.desc !== 'פריט ללא תיאור' || itemTotal(mapped) > 0) all.push(mapped); }); }); if (!all.length) { setStatus('לא נמצאו פריטים בקובץ.'); return; } setPendingImport({ items: all, map: newMap, sheets: wb.SheetNames.length }); } catch (err) { console.error(err); setStatus('שגיאה בקריאת הקובץ.'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
+  const applyImport = mode => {
+    const pi = pendingImport; if (!pi) return;
+    if (mode === 'replace') { setBoqDisciplines(pi.map); setItems(pi.items); }
+    else { setBoqDisciplines(prev => ({ ...pi.map, ...prev })); setItems(prev => [...prev, ...pi.items]); }
+    setDisc('all'); setResult(false); setSelected(new Set()); setPendingImport(null);
+    const msg = `${mode === 'replace' ? 'המחירון הוחלף' : 'נוספו'}: ${pi.items.length.toLocaleString('he-IL')} פריטים מתוך ${pi.sheets} לשוניות.`;
+    setStatus(msg); toast(msg);
+  };
+  const removeItem = it => { const snapshot = items; setItems(prev => prev.filter(x => x.id !== it.id)); toast('הפריט נמחק מהמחירון', () => setItems(snapshot)); };
+  const removeCartLine = x => { const snapshot = cart; setCart(p => p.filter(z => z.id !== x.id)); toast('הפריט הוסר מהסל', () => setCart(snapshot)); };
   const addDiscipline = () => { const name = clean(newDiscipline); if (!name) return; const id = normalizeBoqDisc(name); setBoqDisciplines(prev => ({ ...prev, [id]: { name, icon: 'FileText' } })); setDisc(id); setNewDiscipline(''); };
   const deleteDiscipline = id => { if (disc === 'all' || !boqDisciplines[id]) return; if (!confirm('למחוק דיסציפלינה וכל הפריטים שלה?')) return; setBoqDisciplines(prev => { const next = { ...prev }; delete next[id]; return next; }); setItems(prev => prev.filter(x => x.disciplineId !== id)); setCart(prev => prev.filter(x => x.disciplineId !== id)); setDisc('all'); };
 
@@ -689,6 +751,9 @@ function BoqApp() {
   const cur = project.currency;
 
   return <main className={'layout' + (result ? ' reportOpen' : '')}>
+    {pendingImport && <ImportModal title="טעינת מחירון מ־Excel"
+      text={`נמצאו ${pendingImport.items.length.toLocaleString('he-IL')} פריטים ב־${pendingImport.sheets} לשוניות. להוסיף אותם למחירון הקיים או להחליף אותו?`}
+      onAdd={() => applyImport('add')} onReplace={() => applyImport('replace')} onCancel={() => setPendingImport(null)} />}
     {/* #1 Project Bar */}
     <section className="projectBar">
       <div className="projSelect">
@@ -703,7 +768,7 @@ function BoqApp() {
         <button onClick={() => deleteProjectById(activeId)} title="מחק" className="dangerMini"><Trash2 size={15} /></button>
       </div>
       <div className="projStatus">
-        <select value={project.status || 'טיוטה'} onChange={e => setProject(p => ({ ...p, status: e.target.value }))} style={{ borderColor: STATUS_COLORS[project.status] || '#94a3b8' }}>
+        <select value={project.status || 'טיוטה'} onChange={e => setProject(p => ({ ...p, status: e.target.value }))} style={{ ...statusStyle(project.status), borderColor: (STATUS_TINT[project.status] || STATUS_TINT['טיוטה']).fg }}>
           {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
         </select>
         {project.status && <span className="statusDot" style={{ background: STATUS_COLORS[project.status] }} />}
@@ -712,8 +777,26 @@ function BoqApp() {
     </section>
 
     <section className="left">
+      {/* Setup summary (collapsible) */}
+      <div className="setupBar">
+        <div className="setupInfo">
+          <b>{project.name || 'פרויקט ללא שם'}</b>
+          <span>{[project.customer, project.estimator].filter(Boolean).join(' · ') || 'לא הוזנו לקוח ועורך'}</span>
+          <div className="setupChips">
+            <em>{project.currency}</em><em>{showVat ? `כולל מע"מ ${VAT_RATE * 100}%` : 'לפני מע"מ'}</em><em>{items.length.toLocaleString('he-IL')} פריטים במחירון</em><em>{attachments.length} צרופות</em>{versions.length > 0 && <em>גרסה {versions.length}</em>}
+          </div>
+        </div>
+        <div className="setupActions">
+          <input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden onChange={upload} />
+          <input ref={attachRef} type="file" hidden multiple accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.dwg,.doc,.docx" onChange={e => { setShowSetup(true); handleAttach(e); }} />
+          <button className="uxPrimary" onClick={() => inputRef.current.click()}><UploadCloud size={16} /> העלאת Excel</button>
+          <button className="uxSecondary" onClick={() => attachRef.current?.click()}><Paperclip size={16} /> צרופה / PDF</button>
+          <button className="uxGhost" aria-expanded={showSetup} onClick={() => setShowSetup(v => !v)}>{showSetup ? <ChevronUp size={16} /> : <ChevronDown size={16} />} {showSetup ? 'סגירת הגדרות' : 'פרטי פרויקט והגדרות'}</button>
+        </div>
+      </div>
+      {(showSetup || pdfPreview || pdfParsing) && <>
       {/* Upload */}
-      <div className="panel upload"><div><h2><UploadCloud /> העלאת מחירון Excel</h2><p>המערכת קוראת את כל הלשוניות בקובץ.</p><div className="status"><CheckCircle2 size={16} />{status}</div></div><div className="actions"><input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" hidden onChange={upload} /><button onClick={() => inputRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button><button onClick={reset}><RotateCcw size={18} /> דוגמה</button></div></div>
+      <div className="panel upload"><div><h2><UploadCloud /> העלאת מחירון Excel</h2><p>המערכת קוראת את כל הלשוניות בקובץ.</p><div className="status"><CheckCircle2 size={16} />{status}</div></div><div className="actions"><button onClick={() => inputRef.current.click()}><UploadCloud size={18} /> העלאת Excel</button><button onClick={reset}><RotateCcw size={18} /> דוגמה</button></div></div>
 
       {/* #2 Project details + status + currency */}
       <div className="panel"><h2><Database /> פרטי פרויקט</h2><div className="formGrid">
@@ -729,7 +812,6 @@ function BoqApp() {
       {/* #14 Attachments + PDF auto-import */}
       <div className="panel attachPanel">
         <h2 onClick={() => attachRef.current?.click()} style={{ cursor: 'pointer' }}><Paperclip /> צרופות ומסמכים ({attachments.length})</h2>
-        <input ref={attachRef} type="file" hidden multiple accept=".pdf,.xlsx,.xls,.csv,.jpg,.jpeg,.png,.dwg,.doc,.docx" onChange={handleAttach} />
         <div className="attachZone" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); handleAttach(e); }}>
           {pdfParsing ? <div className="pdfLoading"><Loader size={24} className="spin" /><p>מנתח את ה-PDF... מחלץ טקסט וטבלאות</p></div> :
           <><p>גרור קבצים לכאן או <button onClick={() => attachRef.current?.click()}>בחר קבצים</button></p>
@@ -769,6 +851,8 @@ function BoqApp() {
           <button onClick={() => removeAttach(a.id)}><X size={14} /></button>
         </div>)}</div>}
       </div>
+
+      </>}
 
       {/* Catalog */}
       <div className="panel">
@@ -818,7 +902,7 @@ function BoqApp() {
               <div className="priceActions"><button onClick={() => add(it)}><Plus size={16} /> הוסף</button>
               <button className={favorites.has(it.code) ? 'favBtn on' : 'favBtn'} onClick={() => setFavorites(prev => { const n = new Set(prev); if (n.has(it.code)) n.delete(it.code); else n.add(it.code); return n; })}><Star size={14} fill={favorites.has(it.code) ? 'currentColor' : 'none'} /></button>
               <button className="itemActionBtn" title="שכפל" onClick={() => setItems(prev => [...prev, { ...it, id: uid('dup'), code: it.code + '-copy' }])}><Copy size={14} /></button>
-              <button className="itemActionBtn dangerMini" title="מחק" onClick={() => { if (confirm('למחוק פריט מהמחירון?')) setItems(prev => prev.filter(x => x.id !== it.id)); }}><Trash2 size={14} /></button></div>
+              <button className="itemActionBtn dangerMini" title="מחק" onClick={() => removeItem(it)}><Trash2 size={14} /></button></div>
             </div>
           </div>; })}
         </div>
@@ -827,7 +911,11 @@ function BoqApp() {
 
     {/* SIDEBAR */}
     <aside className="panel sticky">
-      <div className="cartHead"><h2><Calculator /> סל חישוב ({cart.length})</h2>{cart.length > 0 && <button className="clearCartBtn" onClick={() => { if (confirm('לנקות את כל הסל?')) { setCart([]); setResult(false); } }}><Trash2 size={14} /> נקה סל</button>}</div>
+      <div className="cartHead"><h2><Calculator /> סל חישוב ({cart.length})</h2>{cart.length > 0 && <button className="clearCartBtn" onClick={() => { const snapshot = cart; setCart([]); setResult(false); toast('הסל נוקה', () => setCart(snapshot)); }}><Trash2 size={14} /> נקה סל</button>}</div>
+      {cart.length > 0 && <div className="cartSummary">
+        <div><span>סה״כ {showVat ? '(כולל מע"מ)' : '(לפני מע"מ)'}</span><b>{fmt(grandTotal, cur)}</b></div>
+        <button onClick={() => setResult(true)}><Calculator size={16} /> חשב פרויקט</button>
+      </div>}
       {cart.length === 0 ? <div className="empty">לא נבחרו פריטים</div> : <>
         {/* #7 Cart grouped by discipline */}
         <div className="cartList">{cartGrouped.map(g => <div key={g.id} className="cartGroup">
@@ -837,7 +925,7 @@ function BoqApp() {
             const sups = getSupplierMatches(x.disciplineId);
             return <div className="cart" key={x.id}>
               <div className="cartRow">
-                <button onClick={() => { if (confirm('להסיר פריט מהסל?')) setCart(p => p.filter(z => z.id !== x.id)); }}><Trash2 size={14} /></button>
+                <button title="הסר מהסל" onClick={() => removeCartLine(x)}><Trash2 size={14} /></button>
                 <b>{x.desc}</b>
                 <button className="expandBtn" onClick={() => setExpandedCart(prev => { const n = new Set(prev); if (n.has(x.id)) n.delete(x.id); else n.add(x.id); return n; })}>{expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</button>
               </div>
@@ -949,12 +1037,13 @@ function BoqApp() {
 }
 
 /* ====== SUPPLIERS APP ====== */
-function SuppliersApp() {
+function SuppliersApp({ intent }) {
   const [suppliers, setSuppliers] = useState(sampleSuppliers);
   const [query, setQuery] = useState(''); const [disc, setDisc] = useState('הכל');
   const [message, setMessage] = useState('טוען מאגר ספקים...'); const [loaded, setLoaded] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50);
-  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [showAddSupplier, setShowAddSupplier] = useState(intent === 'add');
+  const [pendingSup, setPendingSup] = useState(null);
   const [newSup, setNewSup] = useState({ name: '', supplierNo: '', description: '', discipline: 'כללי / אחר', contact: '', phone: '', email: '', address: '', notes: '' });
 
   useEffect(() => {
@@ -964,13 +1053,14 @@ function SuppliersApp() {
   }, []);
   useEffect(() => { if (loaded) localStorage.setItem(SUP_KEY, JSON.stringify(suppliers)); }, [suppliers, loaded]);
 
-  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const parsed = parseWorkbook(wb); if (parsed.length > 0) { setSuppliers(parsed); setMessage(`נטענו ${parsed.length.toLocaleString('he-IL')} ספקים.`); } else { const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false }); const fallback = parseSuppliers(rows); setSuppliers(fallback); setMessage(`נטענו ${fallback.length.toLocaleString('he-IL')} ספקים (fallback).`); } } catch (err) { console.error(err); setMessage('שגיאה בקריאת הקובץ'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
+  const upload = e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => { try { const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true, raw: false }); const parsed = parseWorkbook(wb); const list = parsed.length > 0 ? parsed : parseSuppliers(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false })); if (!list.length) { setMessage('לא נמצאו ספקים בקובץ.'); return; } setPendingSup(list); } catch (err) { console.error(err); setMessage('שגיאה בקריאת הקובץ'); } }; r.readAsArrayBuffer(f); e.target.value = ''; };
 
   const filtered = useMemo(() => { setVisibleCount(50); return suppliers.filter(s => (disc === 'הכל' || s.discipline === disc) && `${s.name} ${s.description || ''} ${s.field || ''} ${s.supplierNo || ''} ${s.project || ''} ${s.contact || ''} ${s.phone || ''} ${s.email || ''} ${s.fax || ''} ${s.address || ''} ${s.cityCountry || ''} ${s.notes || ''}`.toLowerCase().includes(query.toLowerCase())); }, [suppliers, disc, query]);
   const disciplineCounts = useMemo(() => { const c = {}; for (const s of suppliers) c[s.discipline] = (c[s.discipline] || 0) + 1; return c; }, [suppliers]);
   const stats = useMemo(() => SUP_DISCIPLINES.map(d => ({ name: d, count: disciplineCounts[d] || 0 })).filter(x => x.count > 0), [disciplineCounts]);
   const update = (id, patch) => setSuppliers(p => p.map(s => s.id === id ? { ...s, ...patch } : s));
-  const del = id => { if (!confirm('האם למחוק את הספק?')) return; setSuppliers(p => p.filter(s => s.id !== id)); };
+  const del = id => { const snapshot = suppliers; setSuppliers(p => p.filter(s => s.id !== id)); toast('הספק נמחק', () => setSuppliers(snapshot)); };
+  const applySupImport = mode => { const list = pendingSup; if (!list) return; setSuppliers(prev => mode === 'replace' ? list : [...prev, ...list]); setPendingSup(null); const msg = `${mode === 'replace' ? 'רשימת הספקים הוחלפה' : 'נוספו'}: ${list.length.toLocaleString('he-IL')} ספקים.`; setMessage(msg); toast(msg); };
   const addSupplier = () => {
     if (!newSup.name.trim()) return;
     setSuppliers(p => [...p, { ...newSup, id: uid('sup'), field: newSup.description, rating: 0, importedAt: new Date().toLocaleDateString('he-IL') }]);
@@ -987,6 +1077,8 @@ function SuppliersApp() {
 
   if (!loaded) return <main className="supPage"><div className="loadingState"><b>טוען מאגר ספקים...</b><p>אנא המתן</p></div></main>;
   return <main className="supPage">
+    {pendingSup && <ImportModal title="טעינת ספקים מ־Excel" text={`נמצאו ${pendingSup.length.toLocaleString('he-IL')} ספקים בקובץ. להוסיף אותם למאגר הקיים או להחליף אותו?`}
+      onAdd={() => applySupImport('add')} onReplace={() => applySupImport('replace')} onCancel={() => setPendingSup(null)} />}
     <section className="panel supHero"><div><h2><Users /> מאגר ספקים וקבלנים</h2><p>חיפוש, סיווג, דירוג ותיקון ידני. {suppliers.length} ספקים במאגר.</p><div className="status"><CheckCircle2 size={16} />{message}</div></div><div className="actions"><button onClick={() => setShowAddSupplier(!showAddSupplier)}><UserPlus size={18} /> הוסף ספק</button><label className="fileBtn"><UploadCloud size={18} /> העלאת Excel<input type="file" accept=".xlsx,.xls,.csv" hidden onChange={upload} /></label><button onClick={exportExcel}><Download size={18} /> ייצוא</button><button onClick={() => { setSuppliers(sampleSuppliers); setMessage('חזרת לנתוני דוגמה'); }}><RotateCcw size={18} /> דוגמה</button></div></section>
 
     {/* Add supplier form */}
