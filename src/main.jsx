@@ -8,7 +8,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
 import './brand.css';
 import Splash from './splash.jsx';
-import { List, LayoutGrid, Rocket } from 'lucide-react';
+import { List, LayoutGrid, Rocket, ArrowLeft as ArrowLeftIcon, FolderPlus as FolderPlusIcon } from 'lucide-react';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -320,6 +320,80 @@ function Hl({ text, q }) {
   return <>{s.slice(0, i)}<mark>{s.slice(i, i + needle.length)}</mark>{s.slice(i + needle.length)}</>;
 }
 
+/* ====== NEW PROJECT WIZARD ====== */
+const WIZ_STEPS = ['פרטי פרויקט', 'תמחור'];
+function ProjectWizard({ onCancel, onFinish }) {
+  const [step, setStep] = useState(0);
+  const [proj, setProj] = useState({ name: '', customer: '', estimator: '', status: 'טיוטה', currency: 'ILS', exchangeRate: 1 });
+  const [pct, setPct] = useState({ management: 7, contingency: 12, profit: 10, discount: 0 });
+  const [vat, setVat] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const nameRef = useRef(null);
+
+  useEffect(() => { nameRef.current?.focus(); }, []);
+  useEffect(() => { const h = e => { if (e.key === 'Escape') onCancel(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, []);
+
+  const nameOk = proj.name.trim().length > 0;
+  const canNext = step === 0 ? nameOk : true;
+  const finish = () => onFinish({
+    project: { ...proj, name: proj.name.trim(), exchangeRate: proj.currency === 'ILS' ? 1 : (num(proj.exchangeRate) || 1) },
+    percent: { management: num(pct.management), contingency: num(pct.contingency), profit: num(pct.profit), discount: num(pct.discount) },
+    showVat: vat,
+  });
+  const next = () => { setTouched(true); if (!canNext) return; if (step < WIZ_STEPS.length - 1) setStep(step + 1); else finish(); };
+  const back = () => setStep(s => Math.max(0, s - 1));
+  const pctField = (key, label) => <label>{label}<input type="number" value={pct[key]} onChange={e => setPct(p => ({ ...p, [key]: e.target.value }))} /></label>;
+
+  return <div className="wizOverlay">
+    <div className="wizCard" role="dialog" aria-modal="true" aria-labelledby="wizTitle">
+      <div className="wizHead">
+        <div><span>פרויקט חדש</span><h2 id="wizTitle">פתיחת פרויקט</h2></div>
+        <button className="wizClose" onClick={onCancel} title="סגירה"><X size={18} /></button>
+      </div>
+      <ol className="wizSteps">
+        {WIZ_STEPS.map((s, i) => <li key={s} className={i === step ? 'on' : i < step ? 'done' : ''}><b>{i < step ? <Check size={14} /> : i + 1}</b><span>{s}</span></li>)}
+        <li className="wizStepEnd"><b><Calculator size={14} /></b><span>מחשבון</span></li>
+      </ol>
+
+      <div className="wizBody">
+        {step === 0 && <div className="wizGrid">
+          <label className="wizWide">שם הפרויקט *<input ref={nameRef} value={proj.name} onChange={e => setProj(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') next(); }} placeholder="למשל: הרחבת מתקן צפון" className={touched && !nameOk ? 'invalid' : ''} />{touched && !nameOk && <em className="wizErr">צריך להזין שם לפרויקט</em>}</label>
+          <label>לקוח / מחלקה<input value={proj.customer} onChange={e => setProj(p => ({ ...p, customer: e.target.value }))} /></label>
+          <label>עורך האומדן<input value={proj.estimator} onChange={e => setProj(p => ({ ...p, estimator: e.target.value }))} /></label>
+          <label className="wizWide">סטטוס<div className="wizSeg">{STATUS_OPTIONS.map(s => <button type="button" key={s} className={proj.status === s ? 'on' : ''} onClick={() => setProj(p => ({ ...p, status: s }))}>{s}</button>)}</div></label>
+        </div>}
+
+        {step === 1 && <>
+          <div className="wizGrid">
+            <label>מטבע<select value={proj.currency} onChange={e => setProj(p => ({ ...p, currency: e.target.value }))}><option value="ILS">ILS ₪</option><option value="USD">USD $</option><option value="EUR">EUR €</option></select></label>
+            {proj.currency !== 'ILS' ? <label>שער המרה ל־ILS<input type="number" value={proj.exchangeRate} onChange={e => setProj(p => ({ ...p, exchangeRate: e.target.value }))} /></label> : <div />}
+            <label className="wizWide wizCheck"><input type="checkbox" checked={vat} onChange={e => setVat(e.target.checked)} /> להציג סכומים כולל מע״מ {VAT_RATE * 100}%</label>
+            <div className="wizWide wizHint">אחוזים לכל הפרויקט. אפשר לשנות אותם בהמשך, גם לכל דיסציפלינה בנפרד.</div>
+            {pctField('management', 'ניהול %')}{pctField('contingency', 'בלתי צפוי %')}{pctField('profit', 'רווח %')}{pctField('discount', 'הנחה %')}
+          </div>
+          <div className="wizSummary">
+            <b>סיכום</b>
+            <span><i>פרויקט</i>{proj.name || '-'}</span>
+            <span><i>לקוח</i>{proj.customer || '-'}</span>
+            <span><i>עורך</i>{proj.estimator || '-'}</span>
+            <span><i>סטטוס</i>{proj.status}</span>
+            <span><i>מטבע</i>{proj.currency}{vat ? ' · כולל מע״מ' : ' · לפני מע״מ'}</span>
+            <span><i>אחוזים</i>ניהול {pct.management}% · בלתי צפוי {pct.contingency}% · רווח {pct.profit}% · הנחה {pct.discount}%</span>
+          </div>
+        </>}
+      </div>
+
+      <div className="wizFoot">
+        <button className="uxGhost" onClick={onCancel}>ביטול</button>
+        <div className="wizNav">
+          {step > 0 && <button className="uxSecondary" onClick={back}>הקודם</button>}
+          <button className="uxPrimary" onClick={next} disabled={touched && !canNext}>{step < WIZ_STEPS.length - 1 ? 'הבא' : <>התחל לתמחר <ArrowLeftIcon size={16} /></>}</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
 /* ====== SHELL ====== */
 function Shell() {
   const [tab, setTab] = useState('dashboard');
@@ -331,7 +405,7 @@ function Shell() {
     <header className="top"><div className="brand"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
     <nav><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => go('dashboard')}><LayoutDashboard size={18} /> דשבורד</button><button className={tab === 'boq' ? 'active' : ''} onClick={() => go('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => go('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
     <StorageBanner />
-    {tab === 'dashboard' ? <Dashboard onNavigate={go} /> : tab === 'boq' ? <BoqApp key={'boq-' + (intent || '')} intent={intent} /> : <SuppliersApp intent={intent} />}
+    {tab === 'dashboard' ? <Dashboard onNavigate={go} /> : tab === 'boq' ? <BoqApp key={'boq-' + (intent || '')} intent={intent} onHome={() => go('dashboard')} /> : <SuppliersApp intent={intent} />}
     <Toasts />
     {!entered && <Splash onEnter={enterApp} />}
     <footer className="appFooter">© {new Date().getFullYear()} {COMPANY_NAME} · {SYSTEM_TITLE}</footer>
@@ -369,19 +443,21 @@ function Dashboard({ onNavigate }) {
   const recentProjects = projDetails.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 5);
 
   return <main className="dashPage">
-    <section className="dashWelcome">
-      <h2><Activity size={28} /> ברוכים הבאים ל{SYSTEM_TITLE}</h2>
-      <p>סקירה כללית של פרויקטים, ספקים ונתונים עדכניים</p>
-    </section>
-
-    {totalProjects === 0 && <section className="firstSteps">
-      <h3><Rocket size={20} /> צעדים ראשונים</h3>
-      <div className="firstStepsGrid">
-        <button onClick={() => onNavigate('boq', 'setup')}><b>1</b><span>טוענים מחירון מ־Excel</span><small>כל לשונית בקובץ הופכת לדיסציפלינה</small></button>
-        <button onClick={() => onNavigate('boq', 'new')}><b>2</b><span>פותחים פרויקט ובונים אומדן</span><small>מוסיפים פריטים לסל ומחשבים</small></button>
-        <button onClick={() => onNavigate('suppliers', 'add')}><b>3</b><span>מוסיפים ספקים למאגר</span><small>ידנית או מקובץ Excel</small></button>
+    <section className="dashWelcome dashHero">
+      <div className="heroText">
+        <h2>ברוכים הבאים ל{SYSTEM_TITLE}</h2>
+        <p>כל אומדן מתחיל כאן: פותחים פרויקט, ממלאים את הפרטים, וממשיכים ישר למחשבון.</p>
       </div>
-    </section>}
+      <div className="heroActions">
+        <button className="heroPrimary" onClick={() => onNavigate('boq', 'new')}><FolderPlusIcon size={22} /> פתיחת פרויקט חדש</button>
+        {recentProjects[0] && <button className="heroSecondary" onClick={() => { localStorage.setItem(ACTIVE_PROJ, recentProjects[0].id); onNavigate('boq'); }}>המשך: {recentProjects[0].name}</button>}
+      </div>
+      <ol className="heroSteps">
+        <li><b>1</b><span>פתיחת פרויקט</span></li>
+        <li><b>2</b><span>בחירת פריטים מהמחירון לסל</span></li>
+        <li><b>3</b><span>חישוב, דוח וייצוא</span></li>
+      </ol>
+    </section>
     <section className="dashStats">
       <div className="dashStat" onClick={() => onNavigate('boq')}><Package size={28} /><b>{totalProjects}</b><span>פרויקטים</span></div>
       <div className="dashStat" onClick={() => onNavigate('suppliers')}><Users size={28} /><b>{totalSuppliers}</b><span>ספקים במאגר</span></div>
@@ -421,9 +497,8 @@ function Dashboard({ onNavigate }) {
     <section className="dashQuickActions">
       <h3>פעולות מהירות</h3>
       <div className="dashActions">
-        <button onClick={() => onNavigate('boq', 'new')}><Calculator size={20} /> בנה אומדן חדש</button>
         <button onClick={() => onNavigate('suppliers', 'add')}><UserPlus size={20} /> הוסף ספק</button>
-        <button onClick={() => onNavigate('boq', 'setup')}><UploadCloud size={20} /> העלה Excel</button>
+        <button onClick={() => onNavigate('boq', 'setup')}><UploadCloud size={20} /> עדכון המחירון (Excel)</button>
         <button onClick={() => onNavigate('boq', 'setup')}><FileSearch size={20} /> העלה PDF</button>
       </div>
     </section>
@@ -431,7 +506,7 @@ function Dashboard({ onNavigate }) {
 }
 
 /* ====== BOQ APP ====== */
-function BoqApp({ intent }) {
+function BoqApp({ intent, onHome }) {
   const inputRef = useRef(null); const reportRef = useRef(null); const searchRef = useRef(null); const attachRef = useRef(null); const saveManualRef = useRef(null);
   const [items, setItems] = useState(sampleItems);
   const [showSetup, setShowSetup] = useState(intent === 'setup');
@@ -459,6 +534,8 @@ function BoqApp({ intent }) {
   const [view, setView] = useState(() => { try { return localStorage.getItem('galil_catalog_view') || 'cards'; } catch { return 'cards'; } });
   const changeView = v => { setView(v); try { localStorage.setItem('galil_catalog_view', v); } catch {} };
   const [verNote, setVerNote] = useState('');
+  const [showWizard, setShowWizard] = useState(false);
+  const catalogRef = useRef(null);
 
   // #8 Favorites
   const [favorites, setFavorites] = useState(new Set());
@@ -545,7 +622,7 @@ function BoqApp({ intent }) {
 
   // Dashboard intents
   const intentDone = useRef(false);
-  useEffect(() => { if (!loaded || intentDone.current) return; intentDone.current = true; if (intent === 'new') { newProject(); setShowSetup(true); } }, [loaded]);
+  useEffect(() => { if (!loaded || intentDone.current) return; intentDone.current = true; if (intent === 'new') setShowWizard(true); }, [loaded]);
 
   // Save favorites
   useEffect(() => { if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }, [favorites, loaded]);
@@ -772,6 +849,17 @@ function BoqApp({ intent }) {
   };
 
   const discCounts = useMemo(() => { const c = {}; let all = 0; items.forEach(x => { if (`${x.desc} ${x.code} ${x.supplier || ''} ${x.notes}`.toLowerCase().includes(query.toLowerCase()) && (!favOnly || favorites.has(x.code))) { c[x.disciplineId] = (c[x.disciplineId] || 0) + 1; all++; } }); c.__all = all; return c; }, [items, query, favOnly, favorites]);
+  // One price list for the whole system: a new project keeps the current catalogue.
+  const finishWizard = d => {
+    const keepItems = items, keepMap = boqDisciplines;
+    newProject();
+    setItems(keepItems); setBoqDisciplines(keepMap);
+    setProject(d.project); setPercent(d.percent); setShowVat(d.showVat);
+    setShowWizard(false); setShowSetup(false);
+    setStatus(`נפתח פרויקט: ${d.project.name}`); toast(`הפרויקט "${d.project.name}" נפתח. אפשר להתחיל לתמחר`);
+    setTimeout(() => catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+  };
+  const cancelWizard = () => { setShowWizard(false); if (intent === 'new' && onHome) onHome(); };
   const vatAmount = showVat ? totals.total * VAT_RATE : 0;
   const grandTotal = totals.total + vatAmount;
   const cur = project.currency;
@@ -780,6 +868,7 @@ function BoqApp({ intent }) {
     {pendingImport && <ImportModal title="טעינת מחירון מ־Excel"
       text={`נמצאו ${pendingImport.items.length.toLocaleString('he-IL')} פריטים ב־${pendingImport.sheets} לשוניות. להוסיף אותם למחירון הקיים או להחליף אותו?`}
       onAdd={() => applyImport('add')} onReplace={() => applyImport('replace')} onCancel={() => setPendingImport(null)} />}
+    {showWizard && <ProjectWizard onCancel={cancelWizard} onFinish={finishWizard} />}
     {/* #1 Project Bar */}
     <section className="projectBar">
       <div className="projSelect">
@@ -789,7 +878,7 @@ function BoqApp({ intent }) {
         </select>
       </div>
       <div className="projActions">
-        <button onClick={newProject} title="פרויקט חדש"><FolderPlus size={15} /></button>
+        <button className="openProjectBtn" onClick={() => setShowWizard(true)}><FolderPlus size={16} /> פתיחת פרויקט</button>
         <button onClick={duplicateProject} title="שכפל"><Copy size={15} /></button>
         <button onClick={() => deleteProjectById(activeId)} title="מחק" className="dangerMini"><Trash2 size={15} /></button>
       </div>
@@ -881,7 +970,7 @@ function BoqApp({ intent }) {
       </>}
 
       {/* Catalog */}
-      <div className="panel">
+      <div className="panel" ref={catalogRef} style={{ scrollMarginTop: 150 }}>
         <div className="catalogTop">
           <div><h2><Calculator /> מחירון פריטים ({filtered.length})</h2></div>
           <div className="catalogActions">
