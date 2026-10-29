@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download, RotateCcw, Building2, Zap, Pipette, HardHat, BarChart3, FileText, Users, Star, Pencil, CheckCircle2, Database, ClipboardList, X, Copy, ChevronDown, ChevronUp, Paperclip, Clock, Send, ArrowUpDown, Eye, FolderPlus, Filter, Percent, Hash, Check, Square, CheckSquare, Layers, FileSearch, Loader, Phone, Mail, LayoutDashboard, TrendingUp, Activity, Package, UserPlus } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
+import './brand.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -27,7 +28,7 @@ let _idCounter = 0;
 function uid(prefix) { return `${prefix}-${++_idCounter}-${Math.random().toString(36).slice(2, 8)}`; }
 
 const STATUS_OPTIONS = ['טיוטה', 'בבדיקה', 'מאושר', 'נשלח'];
-const STATUS_COLORS = { 'טיוטה': '#94a3b8', 'בבדיקה': '#f59e0b', 'מאושר': '#10b981', 'נשלח': '#6366f1' };
+const STATUS_COLORS = { 'טיוטה': '#94a3b8', 'בבדיקה': '#f59e0b', 'מאושר': '#10b981', 'נשלח': '#5b3fa8' };
 
 const defaultBoqDisciplines = {
   piping: { name: 'צנרת', icon: 'Pipette' }, electricity: { name: 'חשמל', icon: 'Zap' },
@@ -271,7 +272,7 @@ const DISC_TO_SUP = { piping: 'צנרת', electricity: 'חשמל', instrumentati
 function Shell() {
   const [tab, setTab] = useState('dashboard');
   return <div className="app" dir="rtl">
-    <header className="top"><div className="brand"><div className="logoPlaceholder"><Building2 size={32} /></div><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
+    <header className="top"><div className="brand"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
     <nav><button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}><LayoutDashboard size={18} /> דשבורד</button><button className={tab === 'boq' ? 'active' : ''} onClick={() => setTab('boq')}><ClipboardList size={18} /> מחירון / BOQ</button><button className={tab === 'suppliers' ? 'active' : ''} onClick={() => setTab('suppliers')}><Users size={18} /> מאגר ספקים</button></nav></header>
     {tab === 'dashboard' ? <Dashboard onNavigate={setTab} /> : tab === 'boq' ? <BoqApp /> : <SuppliersApp />}
     <footer className="appFooter">© {new Date().getFullYear()} {COMPANY_NAME} · {SYSTEM_TITLE}</footer>
@@ -928,8 +929,8 @@ function BoqApp() {
       </div>
       <div className="reportBox">
       {/* #16 Print cover */}
-      <div className="printCover"><div className="logoPlaceholder printLogo"><Building2 size={48} /></div><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
-      <div className="reportHead"><div className="logoPlaceholder"><Building2 size={28} /></div><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
+      <div className="printCover"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="printLogo" /><h1>{project.name}</h1><p>{project.customer} · {project.estimator} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status}</p></div>
+      <div className="reportHead"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><h2>דוח אומדן פרויקט</h2><p>{project.name} · {project.customer} · {new Date().toLocaleDateString('he-IL')}</p><p>סטטוס: {project.status} · עורך: {project.estimator} · מטבע: {project.currency}{versions.length > 0 ? ` · גרסה ${versions.length}` : ''}</p></div><div className="reportActions"><button onClick={exportPDF}>PDF</button><button onClick={() => exportRFQ()}>RFQ</button></div></div>
       <div className="kpis"><K title="חומרים" value={fmt(totals.material, cur)} /><K title="עבודה" value={fmt(totals.labor, cur)} /><K title="תכנון" value={fmt(totals.eng, cur)} /><K title="סה״כ" value={fmt(grandTotal, cur)} big /></div>
       <div className="reportGrid">
         <div className="box"><h3><BarChart3 /> לפי דיסציפלינה</h3>{byDiscArr.map(d => { const pct = totals.direct ? Math.round(d.total / totals.direct * 100) : 0; return <div className="bar" key={d.id}><span><b>{d.name}</b><b>{fmt(d.total, cur)} · {pct}%</b></span><i><em style={{ width: pct + '%' }} /></i></div>; })}</div>

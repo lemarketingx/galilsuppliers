@@ -1,0 +1,117 @@
+/* ==========================================================
+   Galil Group brand layer
+   Colours come from the logo: galil purple #250858 and galil grey #707070.
+   style.css reads these variables; the rules below refine key surfaces.
+   ========================================================== */
+
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/heebo-hebrew-wght-normal.woff2') format('woff2');
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+@font-face {
+  font-family: 'Heebo';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/heebo-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --font: 'Heebo', Arial, Helvetica, sans-serif;
+  --brand: #250858;      /* logo purple: primary actions, headings, active states */
+  --brand-900: #17033a;  /* report / print actions */
+  --brand-600: #3a1a80;  /* hover, gradient end */
+  --brand-500: #5b3fa8;  /* focus, bars, accents */
+  --brand-300: #b4a6d8;  /* dashed borders, scrollbar hover */
+  --brand-200: #ddd5ee;  /* borders on tinted areas */
+  --brand-100: #f1edf8;  /* soft fills: chips, soft buttons, tiles */
+  --brand-50:  #f8f6fc;  /* very light washes */
+  --brand-grey: #707070; /* logo grey: company name, quiet labels */
+  --line: #e4e0ec;       /* default borders */
+  --page: #f6f5fa;       /* page background */
+}
+
+body { font-family: var(--font); -webkit-font-smoothing: antialiased; }
+h1, h2, h3 { letter-spacing: -0.01em; }
+.panel h2, .dashCard h3, .box h3 { color: var(--brand); }
+.panel h2 svg, .dashCard h3 svg, .box h3 svg { color: var(--brand-500); }
+
+/* Buttons: brand fill with a gentle hover */
+button, .fileBtn { transition: background-color .18s ease, filter .18s ease, transform .18s ease, box-shadow .18s ease; }
+button:not(:disabled):hover, .fileBtn:hover { filter: brightness(1.08); }
+button:not(:disabled):active { transform: translateY(1px); }
+.actions .fileBtn { background: #0f766e; color: #fff; }
+
+/* Header */
+.top {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 6px 24px rgba(37, 8, 88, .06);
+  padding: 16px 34px;
+}
+.brand { gap: 16px; }
+.brand .brandLogo { width: 64px; height: 64px; }
+.brand > div { border-right: 1px solid var(--line); padding-right: 16px; }
+.brand span { color: var(--brand-grey); font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.brand h1 { color: var(--brand); font-size: 28px; font-weight: 800; }
+.brand p { color: #64748b; font-weight: 500; font-size: 14px; }
+
+/* Navigation: segmented control with a filled brand tab */
+nav { background: var(--brand-50); border: 1px solid var(--line); padding: 6px; border-radius: 16px; }
+nav button { color: #475569; font-weight: 700; border-radius: 12px; padding: 10px 16px; }
+nav button:hover { background: var(--brand-100); filter: none; }
+nav button.active { background: var(--brand); color: #fff; box-shadow: 0 8px 20px rgba(37, 8, 88, .25); }
+
+/* Panels and cards */
+.panel, .dashCard, .dashQuickActions, .reportBox, .supplier { box-shadow: 0 12px 36px rgba(37, 8, 88, .06); }
+.upload, .supHero { border: 1px dashed var(--brand-300); background: linear-gradient(135deg, #fff, var(--brand-50)); }
+.cartGroupHead { background: var(--brand-50); }
+.itemIcon { background: var(--brand-100); color: var(--brand); }
+.price b { color: var(--brand); }
+.chips button { font-weight: 700; }
+.calc { background: linear-gradient(135deg, var(--brand), var(--brand-600)); box-shadow: 0 10px 24px rgba(37, 8, 88, .22); }
+.totalBox { background: var(--brand-50); border-color: var(--brand-200); }
+.totalBox b { color: var(--brand); }
+
+/* Dashboard welcome: brand banner */
+.dashWelcome {
+  background: linear-gradient(135deg, var(--brand), var(--brand-600));
+  border: 0;
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(37, 8, 88, .22);
+}
+.dashWelcome h2 { color: #fff; }
+.dashWelcome h2 svg { color: var(--brand-200); }
+.dashWelcome p { color: var(--brand-200); }
+.dashStat svg { color: var(--brand-500); }
+.dashStat b { color: var(--brand); }
+.dashStat:hover { border-color: var(--brand-200); }
+
+/* Report */
+.reportHead { border-bottom: 2px solid var(--brand-100); }
+.reportHead h2 { color: var(--brand); }
+.reportBox th, .dashTable th { background: var(--brand-100); color: var(--brand); }
+.grand { background: linear-gradient(135deg, var(--brand), var(--brand-600)); }
+.bar em { background: var(--brand-500); }
+.kpi.big b { color: var(--brand); }
+
+/* Suppliers */
+.supplierTop span { background: var(--brand-100); color: var(--brand); }
+.stat b { color: var(--brand); }
+.supplier:hover { border-color: var(--brand-200); }
+
+/* Footer */
+.appFooter { color: var(--brand-grey); border-top: 1px solid var(--line); background: #fff; }
+
+@media print {
+  .printCover h1 { color: var(--brand); }
+  .reportHead h2 { color: var(--brand); }
+}
+@media (max-width: 1050px) {
+  .brand > div { border-right: 0; padding-right: 0; }
+}
