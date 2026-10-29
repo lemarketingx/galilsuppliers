@@ -7,6 +7,7 @@ import { UploadCloud, Calculator, Search, Plus, Trash2, Save, Printer, Download,
 import * as pdfjsLib from 'pdfjs-dist';
 import './style.css';
 import './brand.css';
+import Splash from './splash.jsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -314,6 +315,8 @@ const statusStyle = s => { const t = STATUS_TINT[s] || STATUS_TINT['טיוטה']
 function Shell() {
   const [tab, setTab] = useState('dashboard');
   const [intent, setIntent] = useState(null);
+  const [entered, setEntered] = useState(() => { try { return sessionStorage.getItem('galil_entered') === '1'; } catch { return false; } });
+  const enterApp = () => { try { sessionStorage.setItem('galil_entered', '1'); } catch {} setEntered(true); };
   const go = (t, i = null) => { setIntent(i); setTab(t); window.scrollTo({ top: 0 }); };
   return <div className="app" dir="rtl">
     <header className="top"><div className="brand"><img src="/brand/galil-logo.png" alt={COMPANY_NAME} className="brandLogo" /><div><span>{COMPANY_NAME}</span><h1>{SYSTEM_TITLE}</h1><p>מחירון כתבי כמויות + מאגר ספקים במערכת אחת</p></div></div>
@@ -321,6 +324,7 @@ function Shell() {
     <StorageBanner />
     {tab === 'dashboard' ? <Dashboard onNavigate={go} /> : tab === 'boq' ? <BoqApp key={'boq-' + (intent || '')} intent={intent} /> : <SuppliersApp intent={intent} />}
     <Toasts />
+    {!entered && <Splash onEnter={enterApp} />}
     <footer className="appFooter">© {new Date().getFullYear()} {COMPANY_NAME} · {SYSTEM_TITLE}</footer>
   </div>;
 }
